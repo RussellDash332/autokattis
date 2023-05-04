@@ -11,7 +11,9 @@ echo "PASSWORD = <password>" >> env.py
 python main.py
 ```
 
-where `<user>` can be your Kattis username or email and `<password>` is your Kattis account's password.
+where `<user>` can be your Kattis username or email and `<password>` is your Kattis account's password **as Python strings**.
+
+See `env.py.example` for example.
 
 ## Contributing
 
