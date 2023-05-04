@@ -1,3 +1,4 @@
+import math
 import matplotlib.pyplot as plt
 import pandas as pd
 import re
@@ -64,9 +65,11 @@ class KattisSession(requests.Session):
                     shortest = int(columns[3].text)
                     total = int(columns[4].text)
                     acc = int(columns[5].text)
-                    difficulty = float(re.findall('[\d\.]+', columns[7].text)[0])
-                        # [-1] instead of [0] if we want to take max instead of min
-                        # for example: difficulty 9.1-9.6
+                    difficulty = float(re.findall('[\d\.]+', columns[7].text)[-1])
+                        # [0] instead of [-1] if we want to take min instead of max
+                        # for example:
+                        # - difficulty 9.1-9.6 -> [9.1, 9.6]
+                        # - difficulty 5.0 -> [5.0]
                     category = re.findall('[A-Za-z]+', columns[7].text)[0]
                     data.append([name, fastest, shortest, total, acc, difficulty, category, link])
             params['page'] += 1
@@ -76,7 +79,8 @@ class KattisSession(requests.Session):
         )
 
 ks = KattisSession(USER, PASSWORD)
-data = ks.problems()
-print(data)
-sns.histplot(data.difficulty, binwidth=0.1)
+df = ks.problems()
+hist = sns.histplot(data=df, x='difficulty', hue='category', multiple='stack', binwidth=0.1)
+hist.set(title=f'Solved Kattis Problems ({df.shape[0]})', xlabel='Difficulty')
+plt.xticks([*range(math.floor(min(df.difficulty)), math.ceil(max(df.difficulty))+1)])
 plt.show()
