@@ -15,6 +15,9 @@ from utils import guess_id
 warnings.warn = lambda *args, **kwargs: None # suppress warnings
 
 class KattisSession(requests.Session):
+
+    BASE_URL = 'https://open.kattis.com'
+
     def __init__(self, user, password):
         '''
         A local Kattis session.
@@ -25,7 +28,7 @@ class KattisSession(requests.Session):
         self.user, self.password = user, password
         
         # Get CSRF token
-        response = self.get('https://open.kattis.com/login/email')
+        response = self.get(f'{self.BASE_URL}/login/email')
         regex_result = re.findall(r'value="(\d+)"', response.text)
         assert len(regex_result) == 1, f'Regex found several possible CSRF tokens, {regex_result}'
         self.csrf_token = regex_result[0]
@@ -36,7 +39,7 @@ class KattisSession(requests.Session):
             'user': self.user,
             'password': self.password
         }
-        response = self.post('https://open.kattis.com/login/email', data=data)
+        response = self.post(f'{self.BASE_URL}/login/email', data=data)
         assert response.ok, 'Cannot login to Kattis'
         print('Logged in to Kattis!', flush=True)
 
@@ -65,14 +68,14 @@ class KattisSession(requests.Session):
         data = []
         while has_content:
             has_content = False
-            response = self.get('https://open.kattis.com/problems', params=params)
+            response = self.get(f'{self.BASE_URL}/problems', params=params)
             soup = bs(response.content, features='lxml')
             table = soup.find('table', class_='table2')
             for row in table.tbody.find_all('tr'):
                 columns = row.find_all('td')
                 if columns:
                     has_content = True
-                    link = f"https://open.kattis.com{columns[0].find('a').get('href')}"
+                    link = f"{self.BASE_URL}{columns[0].find('a').get('href')}"
                     name = columns[0].text
                     fastest = float(columns[2].text)
                     shortest = int(columns[3].text)
@@ -119,7 +122,7 @@ class KattisSession(requests.Session):
         Returns a JSON-like structure of the problem body text and their metadata.
         '''
 
-        response = self.get(f'https://open.kattis.com/problems/{problem_id}')
+        response = self.get(f'{self.BASE_URL}/problems/{problem_id}')
 
         if not response.ok:
             print(f'Ignoring {problem_id}')
@@ -129,19 +132,25 @@ class KattisSession(requests.Session):
         body = soup.find('div', class_='problembody')
         data = {'id': problem_id, 'text': body.text.strip(), 'metadata': {}}
         meta = data['metadata']
+
         for div in soup.find_all('div', class_='metadata_list-item'):
-            div = div.text.strip().split('\n')
-            if div[0] == 'CPU Time limit':
-                meta['cpu'] = div[-1].strip()
-            elif div[0] == 'Memory limit':
-                meta['memory'] = div[-1].strip()
-            elif div[0] == 'Difficulty':
-                meta['difficulty'] = float(re.findall('[\d\.]+', div[-1])[-1])
-                meta['category'] = re.findall('[A-Za-z]+', div[-1])[0]
-            elif div[0] == 'Author':
-                meta['author'] = div[-1].strip()
-            elif div[0] == 'Source':
-                meta['source'] = div[-1].strip()
+            div_text = div.text.strip().split('\n')
+            if div_text[0] == 'CPU Time limit':
+                meta['cpu'] = div_text[-1].strip()
+            elif div_text[0] == 'Memory limit':
+                meta['memory'] = div_text[-1].strip()
+            elif div_text[0] == 'Difficulty':
+                meta['difficulty'] = float(re.findall('[\d\.]+', div_text[-1])[-1])
+                meta['category'] = re.findall('[A-Za-z]+', div_text[-1])[0]
+            elif div_text[0] == 'Author':
+                meta['author'] = div_text[-1].strip()
+            elif div_text[0] == 'Source':
+                meta['source'] = div_text[-1].strip()
+            elif div_text[0] == 'Attachments' or div_text[0] == 'Downloads':
+                for url, fn in [(f"{self.BASE_URL}{a.get('href')}", a.get('download') or a.get('href').split('/')[-1]) for a in div.find_all('a')]:
+                    # TODO: print(self.get(url).status_code, fn)
+                    pass
+
         ret = [data]
         for pid in set(problem_ids) - {problem_id}:
             prob = self.problem(pid)
@@ -171,7 +180,7 @@ class KattisSession(requests.Session):
         data = {}
         while has_content:
             has_content = False
-            response = self.get(f'https://open.kattis.com/users/{self.user}', params=params)
+            response = self.get(f'{self.BASE_URL}/users/{self.user}', params=params)
             soup = bs(response.content, features='lxml')
             table = soup.find('table', class_='table2 report_grid-problems_table double-rows')
             for row in table.tbody.find_all('tr'):
@@ -179,7 +188,7 @@ class KattisSession(requests.Session):
                 columns_text = [column.text for column in columns if column.text]
                 if columns_text:
                     has_content = True
-                    link = f"https://open.kattis.com/submissions/{columns[-1].find('a').get('href').split('/')[-1]}"
+                    link = f"{self.BASE_URL}/submissions/{columns[-1].find('a').get('href').split('/')[-1]}"
                     ts = columns_text[0]
                     pid = columns[2].find_all('a')[-1].get('href').split('/')[-1] # use find_all as a workaround for contest links
                     name = columns_text[1].split(' / ')[-1]
@@ -226,7 +235,7 @@ class KattisSession(requests.Session):
                 difficulty = header.text
             column = row.find('td')
             pid = column.find('a').get('href').split('/')[-1]
-            link = f'https://open.kattis.com/problems/{pid}'
+            link = f'{self.BASE_URL}/problems/{pid}'
             name, pt = column.text.strip().split('\n')
             pt = pt.strip(' pt')
             data.append({
@@ -275,7 +284,7 @@ class KattisSession(requests.Session):
                 data.append(new_data)
         elif country != None:
             country_code = guess_id(country, COUNTRIES)
-            response = self.get(f'https://open.kattis.com/countries/{country_code}')
+            response = self.get(f'{self.BASE_URL}/countries/{country_code}')
             soup = bs(response.content, features='lxml')
             table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
             if not table: return []
@@ -317,7 +326,7 @@ class KattisSession(requests.Session):
                 })
         else:
             university_code = guess_id(university, UNIVERSITIES)
-            response = self.get(f'https://open.kattis.com/universities/{university_code}')
+            response = self.get(f'{self.BASE_URL}/universities/{university_code}')
             soup = bs(response.content, features='lxml')
             table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
             if not table: return []
