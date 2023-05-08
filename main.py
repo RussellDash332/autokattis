@@ -266,6 +266,7 @@ class KattisSession(requests.Session):
                 rank = int(rank)
                 pts = float(re.findall(r'[\d\.]+', pts)[0])
                 findall = columns[1].find_all('a')
+
                 new_data = {
                     'rank': rank,
                     'name': name,
@@ -273,6 +274,7 @@ class KattisSession(requests.Session):
                     'country': None,
                     'university': None
                 }
+
                 for urlsplit, title in [(column.get('href').split('/'), column.get('title')) for column in findall]:
                     assert sum(x in urlsplit for x in ['users', 'universities', 'countries']) == 1, 'Only one field should be present'
                     if 'users' in urlsplit:
@@ -294,7 +296,7 @@ class KattisSession(requests.Session):
                 columns = row.find_all('td')
                 columns_text = [column.text.strip() for column in columns]
                 columns_url = [column.find_all('a') for column in columns]
-                
+
                 rank = int(columns_text[0])
                 name = columns_text[1]
                 pts = float(columns_text[-1])
@@ -336,7 +338,7 @@ class KattisSession(requests.Session):
                 columns = row.find_all('td')
                 columns_text = [column.text.strip() for column in columns]
                 columns_url = [column.find_all('a') for column in columns]
-                
+
                 rank = int(columns_text[0])
                 name = columns_text[1]
                 pts = float(columns_text[-1])
