@@ -12,7 +12,7 @@ Kattis scraper, updated as of May 2023 after the major UI/UX change.
     PASSWORD = <password>
     ```
 
-    where `<username>` is your Kattis username/email and `<password>` is your Kattis account password. Both should be provided as **Python strings**.
+    where `<username>` is your Kattis username/email and `<password>` is your Kattis account password. Both should be provided as **Python strings**. See `env.py.example` for example.
 1. Run `python main.py`.
 
 ## Useful References
