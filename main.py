@@ -10,20 +10,9 @@ from bs4 import BeautifulSoup as bs
 from database import LANGUAGES, COUNTRIES, UNIVERSITIES
 from env import USER, PASSWORD
 from thefuzz import fuzz
+from utils import guess_id
 
 warnings.warn = lambda *args, **kwargs: None # suppress warnings
-
-def guess_id(guess, data):
-    if guess in data: return guess
-    reverse_mapping = {v:k for k,v in data.items()}
-    if guess in reverse_mapping: return reverse_mapping[guess]
-
-    # Use fuzzy search
-    candidates = {**data, **reverse_mapping}
-    best = max(candidates, key=lambda c: (fuzz.ratio(guess, c), fuzz.partial_ratio(guess, c)))
-    if best in data: return best
-    elif best in reverse_mapping: return reverse_mapping[best]
-    raise Exception(f'Invalid ID provided! ({guess})')
 
 class KattisSession(requests.Session):
     def __init__(self, user, password):
@@ -372,3 +361,4 @@ class KattisSession(requests.Session):
 
 if __name__ == '__main__':
     ks = KattisSession(USER, PASSWORD)
+    print(pd.DataFrame(ks.problem('2048', 'hello', 'mnist2class')))
