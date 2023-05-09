@@ -1,3 +1,4 @@
+import io
 import math
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -5,6 +6,7 @@ import re
 import requests
 import seaborn as sns
 import warnings
+import zipfile
 
 from bs4 import BeautifulSoup as bs
 from database import LANGUAGES, COUNTRIES, UNIVERSITIES
@@ -147,9 +149,73 @@ class KattisSession(requests.Session):
             elif div_text[0] == 'Source':
                 meta['source'] = div_text[-1].strip()
             elif div_text[0] == 'Attachments' or div_text[0] == 'Downloads':
+                meta['files'] = meta.get('files', {})
                 for url, fn in [(f"{self.BASE_URL}{a.get('href')}", a.get('download') or a.get('href').split('/')[-1]) for a in div.find_all('a')]:
-                    # TODO: print(self.get(url).status_code, fn)
-                    pass
+                    if url.endswith('zip'):
+                        with zipfile.ZipFile(io.BytesIO(self.get(url).content)) as z:
+                            meta['files'][fn] = {}
+                            for inner_fn in z.namelist():
+                                with z.open(inner_fn) as inner_file:
+                                    meta['files'][fn][inner_fn] = inner_file.read().decode("utf-8")
+                    else:
+                        meta['files'][fn] = self.get(url).text
+
+        # statistics
+        response = self.get(f'{self.BASE_URL}/problems/{problem_id}/statistics')
+        meta['statistics'] = {}
+        soup = bs(response.content, features='lxml')
+        category_map = {}
+        for option in soup.find_all('option'):
+            category_map[option.get('value')] = [option.text, option.get('data-title')]
+        for section in soup.find_all('section', class_='strip strip-item-plain'):
+            table = section.find('table', class_='table2 report_grid-problems_table')
+            section_id = section.get('id')
+            language, description = category_map[section_id]
+            meta['statistics'][language] = meta['statistics'].get(language, {})
+            meta['statistics'][language][['fastest', 'shortest']['shortest' in section_id]] = {}
+            stats = meta['statistics'][language][['fastest', 'shortest']['shortest' in section_id]]
+            if table:
+                stats['ranklist'] = []
+                for row in table.tbody.find_all('tr'):
+                    columns = row.find_all('td')
+                    rank, name, runtime_or_length, date, _ = [column.text for column in columns]
+                    rank = int(rank)
+                    runtime_or_length = [float, int]['shortest' in section_id](runtime_or_length.split()[0])
+                    username_a = columns[1].find('a')
+                    if username_a:
+                        username = username_a.get('href').split('/')[-1]
+                    else:
+                        username = None
+                    stats['ranklist'].append({
+                        'rank': rank,
+                        'name': name,
+                        'username': username,
+                        ['runtime', 'length']['shortest' in section_id]: runtime_or_length,
+                        'date': date
+                    })
+            stats['description'] = description
+
+        # my submissions
+        response = self.get(f'{self.BASE_URL}/problems/{problem_id}?tab=submissions')
+        meta['submissions'] = []
+        soup = bs(response.content, features='lxml')
+        table = soup.find('table', id='submissions')
+        for row in table.tbody.find_all('tr'):
+            columns = row.find_all('td')
+            columns_text = [column.text for column in columns if column.text]
+            if columns_text:
+                status, runtime, language, tc, _ = columns_text
+                link = f"{self.BASE_URL}{columns[-1].find('a').get('href')}"
+                runtime = ' '.join(runtime.split())
+                test_case_passed, test_case_full = map(int, tc.split('/'))
+                meta['submissions'].append({
+                    'status': status,
+                    'runtime': runtime,
+                    'language': language,
+                    'test_case_passed': test_case_passed,
+                    'test_case_full': test_case_full,
+                    'link': link
+                })
 
         ret = [data]
         for pid in set(problem_ids) - {problem_id}:
@@ -369,5 +435,4 @@ class KattisSession(requests.Session):
         return data
 
 if __name__ == '__main__':
-    ks = KattisSession(USER, PASSWORD)
-    print(pd.DataFrame(ks.problem('2048', 'hello', 'mnist2class')))
+    kt = KattisSession(USER, PASSWORD)
