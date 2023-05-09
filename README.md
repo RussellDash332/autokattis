@@ -44,17 +44,20 @@ kt.problem('2048', 'abinitio', 'dasort') # fetch multiple in one
 
 ```py
 kt.stats() # your best submission for each problem
-kt.stats('Python 3', 'Cpp') # multiple languages
+kt.stats('Java') # all your Java submissions
+kt.stats('Python3', 'Cpp') # multiple languages
 
-kt.suggest() # what's next for me?
+kt.suggest() # what's the next problem for me?
 ```
 
 ### Ranklist
 
 ```py
-kattis.ranklist() # people around you
-kattis.ranklist(country='Singapore') # country leaderboard
-kattis.ranklist(university='nus.edu.sg') # university leaderboard
+kt.ranklist() # people around you
+kt.ranklist(country='Singapore') # country leaderboard
+kt.ranklist(country='SGP') # use alpha-3 code instead
+kt.ranklist(university='National University of Singapore') # university leaderboard
+kt.ranklist(university='nus.edu.sg') # use university domain instead
 ```
 
 ## Useful References
