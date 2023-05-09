@@ -2,7 +2,7 @@
 
 Kattis scraper, updated as of May 2023 after the major UI/UX change.
 
-## Usage
+## Setup
 
 1. Run `pip install -r requirements.txt` to install the Python packages required.
 1. Create a new file called `env.py` and add these two lines.
@@ -14,6 +14,48 @@ Kattis scraper, updated as of May 2023 after the major UI/UX change.
 
     where `<username>` is your Kattis username/email and `<password>` is your Kattis account password. Both should be provided as **Python strings**. See `env.py.example` for example.
 1. Run `python main.py`.
+
+## Use Cases
+
+### Login
+
+Construct a `KattisSession` object that takes in the username and the password.
+
+```py
+kt = KattisSession('username', 'password')
+```
+
+### Problem-specific
+
+```py
+kt.problems() # problems you have solved so far
+kt.problems(show_partial=False) # exclude partial submissions
+kt.problems(*[True]*4) # literally all problems on Kattis
+
+kt.plot_problems() # plot the points distribution
+kt.plot_problems(filepath='plot.png') # save to a filepath
+kt.plot_problems(show_partial=False) # plot fully solved submissions
+
+kt.problem('2048') # fetch info about a problem
+kt.problem('2048', 'abinitio', 'dasort') # fetch multiple in one
+```
+
+### User-specific
+
+```py
+kt.stats() # your best submission for each problem
+kt.stats('Python 3', 'Cpp') # multiple languages
+
+kt.suggest() # what's next for me?
+```
+
+### Ranklist
+
+```py
+kattis.ranklist() # people around you
+kattis.ranklist(country='Singapore') # country leaderboard
+kattis.ranklist(university='nus.edu.sg') # university leaderboard
+```
 
 ## Useful References
 
