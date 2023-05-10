@@ -1,3 +1,5 @@
+from thefuzz import fuzz
+
 def guess_id(guess, data):
     if guess in data: return guess
     reverse_mapping = {v:k for k,v in data.items()}

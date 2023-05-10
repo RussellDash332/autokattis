@@ -9,9 +9,9 @@ import warnings
 import zipfile
 
 from bs4 import BeautifulSoup as bs
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from database import LANGUAGES, COUNTRIES, UNIVERSITIES
 from env import USER, PASSWORD
-from thefuzz import fuzz
 from utils import guess_id
 
 warnings.warn = lambda *args, **kwargs: None # suppress warnings
@@ -19,6 +19,7 @@ warnings.warn = lambda *args, **kwargs: None # suppress warnings
 class KattisSession(requests.Session):
 
     BASE_URL = 'https://open.kattis.com'
+    MAX_WORKERS = 6
 
     def __init__(self, user, password):
         '''
@@ -68,38 +69,45 @@ class KattisSession(requests.Session):
             'show_untried': ['off', 'on'][show_untried]
         }
         data = []
-        while has_content:
-            has_content = False
-            response = self.get(f'{self.BASE_URL}/problems', params=params)
-            soup = bs(response.content, features='lxml')
-            table = soup.find('table', class_='table2')
-            for row in table.tbody.find_all('tr'):
-                columns = row.find_all('td')
-                if columns:
-                    has_content = True
-                    link = f"{self.BASE_URL}{columns[0].find('a').get('href')}"
-                    name = columns[0].text
-                    fastest = float(columns[2].text)
-                    shortest = int(columns[3].text)
-                    total = int(columns[4].text)
-                    acc = int(columns[5].text)
-                    difficulty = float(re.findall('[\d\.]+', columns[7].text)[-1])
-                        # [0] instead of [-1] if we want to take min instead of max
-                        # for example:
-                        # - difficulty 9.1-9.6 -> [9.1, 9.6]
-                        # - difficulty 5.0 -> [5.0]
-                    category = re.findall('[A-Za-z]+', columns[7].text)[0]
-                    data.append({
-                        'name': name,
-                        'fastest': fastest,
-                        'shortest': shortest,
-                        'total': total,
-                        'acc': acc,
-                        'difficulty': difficulty,
-                        'category': category,
-                        'link': link
-                    })
-            params['page'] += 1
+
+        with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            futures = []
+            while has_content:
+                has_content = False
+                futures.clear()
+                for _ in range(self.MAX_WORKERS):
+                    futures.append(executor.submit(self.get, f'{self.BASE_URL}/problems', params=params.copy()))
+                    params['page'] += 1
+                for f in as_completed(futures):
+                    response = f.result()
+                    soup = bs(response.content, features='lxml')
+                    table = soup.find('table', class_='table2')
+                    for row in table.tbody.find_all('tr'):
+                        columns = row.find_all('td')
+                        if columns:
+                            has_content = True
+                            link = f"{self.BASE_URL}{columns[0].find('a').get('href')}"
+                            name = columns[0].text
+                            fastest = float(columns[2].text)
+                            shortest = int(columns[3].text)
+                            total = int(columns[4].text)
+                            acc = int(columns[5].text)
+                            difficulty = float(re.findall('[\d\.]+', columns[7].text)[-1])
+                                # [0] instead of [-1] if we want to take min instead of max
+                                # for example:
+                                # - difficulty 9.1-9.6 -> [9.1, 9.6]
+                                # - difficulty 5.0 -> [5.0]
+                            category = re.findall('[A-Za-z]+', columns[7].text)[0]
+                            data.append({
+                                'name': name,
+                                'fastest': fastest,
+                                'shortest': shortest,
+                                'total': total,
+                                'acc': acc,
+                                'difficulty': difficulty,
+                                'category': category,
+                                'link': link
+                            })
         return data
 
     def plot_problems(self, filepath=None, show_solved=True, show_partial=True, show_tried=False, show_untried=False):
@@ -244,43 +252,49 @@ class KattisSession(requests.Session):
             'language': language
         }
         data = {}
-        while has_content:
-            has_content = False
-            response = self.get(f'{self.BASE_URL}/users/{self.user}', params=params)
-            soup = bs(response.content, features='lxml')
-            table = soup.find('table', class_='table2 report_grid-problems_table double-rows')
-            for row in table.tbody.find_all('tr'):
-                columns = row.find_all('td')
-                columns_text = [column.text for column in columns if column.text]
-                if columns_text:
-                    has_content = True
-                    link = f"{self.BASE_URL}/submissions/{columns[-1].find('a').get('href').split('/')[-1]}"
-                    ts = columns_text[0]
-                    pid = columns[2].find_all('a')[-1].get('href').split('/')[-1] # use find_all as a workaround for contest links
-                    name = columns_text[1].split(' / ')[-1]
-                    runtime = ' '.join(columns_text[3].split()[:-1]) # not converting to float because some TLE solutions (with '>') can also be AC
-                    language = columns_text[4]
-                    tc_pass, tc_full = map(int, columns_text[5].split('/'))
-                    new_data = {
-                        'name': name,
-                        'timestamp': ts,
-                        'runtime': runtime,
-                        'language': language,
-                        'test_case_passed': tc_pass,
-                        'test_case_full': tc_full,
-                        'link': link
-                    }
-                    pts_regex = re.findall(r'[\d\.]+', columns_text[2])
-                    if pts_regex:
-                        new_data['score'] = float(pts_regex[0])
-                    if pid not in data:
-                        data[pid] = new_data
-                    else:
-                        data[pid] = max(
-                            data[pid], new_data,
-                            key=lambda x: (x.get('score'), x['test_case_passed'], -float(x['runtime'] if '>' not in x['runtime'] else 1e9))
-                        )
-            params['page'] += 1
+        with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            futures = []
+            while has_content:
+                has_content = False
+                futures.clear()
+                for _ in range(self.MAX_WORKERS):
+                    futures.append(executor.submit(self.get, f'{self.BASE_URL}/users/{self.user}', params=params.copy()))
+                    params['page'] += 1
+                for f in as_completed(futures):
+                    response = f.result()
+                    soup = bs(response.content, features='lxml')
+                    table = soup.find('table', class_='table2 report_grid-problems_table double-rows')
+                    for row in table.tbody.find_all('tr'):
+                        columns = row.find_all('td')
+                        columns_text = [column.text for column in columns if column.text]
+                        if columns_text:
+                            has_content = True
+                            link = f"{self.BASE_URL}/submissions/{columns[-1].find('a').get('href').split('/')[-1]}"
+                            ts = columns_text[0]
+                            pid = columns[2].find_all('a')[-1].get('href').split('/')[-1] # use find_all as a workaround for contest links
+                            name = columns_text[1].split(' / ')[-1]
+                            runtime = ' '.join(columns_text[3].split()[:-1]) # not converting to float because some TLE solutions (with '>') can also be AC
+                            language = columns_text[4]
+                            tc_pass, tc_full = map(int, columns_text[5].split('/'))
+                            new_data = {
+                                'name': name,
+                                'timestamp': ts,
+                                'runtime': runtime,
+                                'language': language,
+                                'test_case_passed': tc_pass,
+                                'test_case_full': tc_full,
+                                'link': link
+                            }
+                            pts_regex = re.findall(r'[\d\.]+', columns_text[2])
+                            if pts_regex:
+                                new_data['score'] = float(pts_regex[0])
+                            if pid not in data:
+                                data[pid] = new_data
+                            else:
+                                data[pid] = max(
+                                    data[pid], new_data,
+                                    key=lambda x: (x.get('score'), x['test_case_passed'], -float(x['runtime'] if '>' not in x['runtime'] else 1e9))
+                                )
         ret = [{'id': k, **v} for k, v in data.items()]
         for lang in set(languages) - {language}:
             ret.extend(self.stats(lang))
