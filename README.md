@@ -1,29 +1,27 @@
 # autokattis
 
-Kattis scraper, updated as of May 2023 after the major UI/UX change.
+Updated Kattis API wrapper as of May 2023 after the major UI/UX change.
 
 ## Setup
 
-1. Run `pip install -r requirements.txt` to install the Python packages required.
-1. Create a new file called `env.py` and add these two lines.
+Simply install it as a Python package.
 
-    ```python
-    USER = <username>
-    PASSWORD = <password>
-    ```
-
-    where `<username>` is your Kattis username/email and `<password>` is your Kattis account password. Both should be provided as **Python strings**. See `env.py.example` for example.
-1. Run `python main.py`.
+```sh
+$ pip install autokattis
+```
 
 ## Use Cases
 
 ### Login
 
-Construct a `KattisSession` object that takes in the username and the password.
+Construct a `Kattis` object that takes in the username and the password.
 
 ```py
-kt = KattisSession('username', 'password')
+from autokattis import Kattis
+kt = Kattis('username', 'password')
 ```
+
+where `'username'` is your Kattis username/email and `'password'` is your Kattis account password. **Both should be provided as Python strings.**
 
 ### Problem-specific
 

@@ -1,7 +1,0 @@
-requests
-beautifulsoup4
-pandas
-matplotlib
-seaborn
-thefuzz
-thefuzz[speedup]

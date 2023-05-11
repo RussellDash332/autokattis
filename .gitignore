@@ -1,4 +1,8 @@
 __pycache__/
 env.py
+setup.py
 *.html
 *.png
+build/
+dist/
+*egg-info/
