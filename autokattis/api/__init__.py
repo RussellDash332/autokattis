@@ -9,6 +9,7 @@ import warnings
 import zipfile
 
 from bs4 import BeautifulSoup as bs
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..database import LANGUAGES, COUNTRIES, UNIVERSITIES
 from ..utils import guess_id
@@ -45,10 +46,19 @@ class Kattis(requests.Session):
         assert response.ok, 'Cannot login to Kattis'
         print('Logged in to Kattis!', flush=True)
 
-        self.homepage = response.text
-        regex_result = re.findall(r'/users/([^/]+)/settings', self.homepage)
-        assert len(regex_result) == 1, f'Regex found several possible usernames, {regex_result}'
-        self.user = regex_result[0]
+        self.homepage = bs(response.content, features='lxml')
+        names = []
+        for a in self.homepage.find_all('a'):
+            href = a.get('href')
+            if href:
+                paths = href.split('/')
+                if len(paths) > 2 and paths[1] == 'users':
+                    names.append(paths[2])
+        ctr = Counter(names)
+        max_freq = max(ctr.values())
+        candidate_usernames = [name for name in ctr if ctr[name] == max_freq]
+        print(f'Candidate username(s): {candidate_usernames}')
+        self.user = candidate_usernames[0]
 
     def problems(self, show_solved=True, show_partial=True, show_tried=False, show_untried=False):
         '''
@@ -305,7 +315,7 @@ class Kattis(requests.Session):
         Returns a JSON-like structure containing the suggested problems points and its difficulty.
         '''
 
-        soup = bs(self.homepage, features='lxml')
+        soup = self.homepage
         table = soup.find_all('table', class_='table2 report_grid-problems_table')[0]
         data = []
         for row in table.tbody.find_all('tr'):
@@ -334,13 +344,13 @@ class Kattis(requests.Session):
         assert country == None or university == None, 'Both of country and university cannot be given at the same time!'
 
         if country == university == None:
-            soup = bs(self.homepage, features='lxml')
+            soup = self.homepage
             table = soup.find_all('table', class_='table2 report_grid-problems_table')[1]
             data = []
             for row in table.tbody.find_all('tr'):
                 columns = row.find_all('td')
                 rank, name, pts, *_ = [column.text.strip() for column in columns]
-                rank = int(rank)
+                rank = int(rank) if rank.isdigit() else None
                 pts = float(re.findall(r'[\d\.]+', pts)[0])
                 findall = columns[1].find_all('a')
 
