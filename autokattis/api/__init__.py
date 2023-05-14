@@ -43,7 +43,7 @@ class Kattis(requests.Session):
             'password': self.password
         }
         response = self.post(f'{self.BASE_URL}/login/email', data=data)
-        assert response.ok, 'Cannot login to Kattis'
+        assert response.url == 'https://open.kattis.com/', 'Cannot login to Kattis'
         print('Logged in to Kattis!', flush=True)
 
         self.homepage = bs(response.content, features='lxml')
