@@ -97,8 +97,8 @@ class Kattis(requests.Session):
                             has_content = True
                             link = f"{self.BASE_URL}{columns[0].find('a').get('href')}"
                             name = columns[0].text
-                            fastest = float(columns[2].text)
-                            shortest = int(columns[3].text)
+                            fastest = float(columns[2].text.replace('--', 'inf'))
+                            shortest = int(columns[3].text.replace('--', '-1'))
                             total = int(columns[4].text)
                             acc = int(columns[5].text)
                             difficulty = float(re.findall('[\d\.]+', columns[7].text)[-1])
@@ -134,6 +134,14 @@ class Kattis(requests.Session):
         if filepath != None:
             plt.savefig(filepath)
             print(f'Saved to {filepath}')
+
+    def list_unsolved(self, show_partial=True):
+        '''
+        Quick shortcut for all Kattis grinders to list all unsolved questions.
+
+        Default: includes partially solved questions.
+        '''
+        return self.problems(show_solved=False, show_partial=show_partial, show_tried=True, show_untried=True)
 
     def problem(self, problem_id, *problem_ids):
         '''
