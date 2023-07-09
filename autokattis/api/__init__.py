@@ -130,10 +130,10 @@ class Kattis(requests.Session):
         hist = sns.histplot(data=df, x='difficulty', hue='category', multiple='stack', binwidth=0.1)
         hist.set(title=f'Solved Kattis Problems ({df.shape[0]})', xlabel='Difficulty')
         plt.xticks([*range(math.floor(min(df.difficulty)), math.ceil(max(df.difficulty))+1)])
-        plt.show()
         if filepath != None:
             plt.savefig(filepath)
             print(f'Saved to {filepath}')
+        plt.show()
 
     def list_unsolved(self, show_partial=True):
         '''
