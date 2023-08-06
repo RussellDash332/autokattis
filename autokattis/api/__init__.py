@@ -106,7 +106,8 @@ class Kattis(requests.Session):
                                 # for example:
                                 # - difficulty 9.1-9.6 -> [9.1, 9.6]
                                 # - difficulty 5.0 -> [5.0]
-                            category = re.findall('[A-Za-z]+', columns[7].text)[0]
+                            try: category = re.findall('[A-Za-z]+', columns[7].text)[0]
+                            except: category = 'N/A'
                             data.append({
                                 'name': name,
                                 'fastest': fastest,
@@ -127,8 +128,14 @@ class Kattis(requests.Session):
         '''
 
         df = pd.DataFrame(self.problems(show_solved, show_partial, show_tried, show_untried))
-        hist = sns.histplot(data=df, x='difficulty', hue='category', multiple='stack', binwidth=0.1)
-        hist.set(title=f'Solved Kattis Problems ({df.shape[0]})', xlabel='Difficulty')
+        categories = set(df.category)
+        hue_order = [c for c in ['Easy', 'Medium', 'Hard', 'N/A'][::-1] if c in categories]
+        palette = {'Easy': '#39a137', 'Medium': '#ffbe00', 'Hard': '#ff411a', 'N/A': 'gray'}
+        for c in [*palette]:
+            if c not in categories: del palette[c]
+        hist = sns.histplot(data=df, x='difficulty', hue='category', multiple='stack', binwidth=0.1, hue_order=hue_order, palette=palette)
+        hist.set(title=f'Solved Kattis Problems by {self.user} ({df.shape[0]})', xlabel='Difficulty')
+        plt.legend(title='Category', loc='upper right', labels=hue_order[::-1])
         plt.xticks([*range(math.floor(min(df.difficulty)), math.ceil(max(df.difficulty))+1)])
         if filepath != None:
             plt.savefig(filepath)

@@ -9,7 +9,8 @@ for ret in [
     kt.problems(),                              # problems you have solved so far
     kt.problems(show_partial=False),            # exclude partial submissions
     kt.problems(*[True]*4),                     # literally all problems on Kattis
-    kt.list_unsolved(),                          # let's grind!
+
+    kt.list_unsolved(),                         # let's grind!
 
     kt.plot_problems(),                         # plot the points distribution
     kt.plot_problems(filepath='plot.png'),      # save to a filepath
