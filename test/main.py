@@ -1,5 +1,3 @@
-import pandas as pd
-
 from autokattis import Kattis
 from env import USER, PASSWORD
 
@@ -32,4 +30,4 @@ for ret in [
     kt.ranklist(university='nus.edu.sg')                        # use university domain instead
 ]:
     if ret:
-        print(pd.DataFrame(ret))
+        print(ret.to_df())

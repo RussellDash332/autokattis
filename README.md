@@ -19,6 +19,7 @@ Construct a `Kattis` object that takes in the username and the password.
 ```py
 from autokattis import Kattis
 kt = Kattis('username', 'password')
+kt = Kattis('username') # which will then prompts you for the password
 ```
 
 where `'username'` is your Kattis username/email and `'password'` is your Kattis account password. **Both should be provided as Python strings.**
@@ -58,6 +59,15 @@ kt.ranklist(country='Singapore')                            # country leaderboar
 kt.ranklist(country='SGP')                                  # use alpha-3 code instead
 kt.ranklist(university='National University of Singapore')  # university leaderboard
 kt.ranklist(university='nus.edu.sg')                        # use university domain instead
+```
+
+### Convert to DataFrame
+
+As simple as this!
+
+```py
+kt.problems().to_df()
+kt.ranklist().to_df()
 ```
 
 ## Useful References
