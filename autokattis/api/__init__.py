@@ -11,6 +11,9 @@ import zipfile
 from bs4 import BeautifulSoup as bs
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
+from getpass import getpass
+
 from ..database import LANGUAGES, COUNTRIES, UNIVERSITIES
 from ..utils import guess_id
 
@@ -21,13 +24,19 @@ class Kattis(requests.Session):
     BASE_URL = 'https://open.kattis.com'
     MAX_WORKERS = 6
 
-    def __init__(self, user, password):
+    class Result(list):
+        def __init__(self, data):
+            super().__init__(data)
+            self.to_df = lambda: pd.DataFrame(data)
+
+    def __init__(self, user, password=None):
         '''
         A local Kattis session.
         Takes in a user (email or username) and a password.
         '''
 
         super().__init__()
+        if password == None: password = getpass('Enter password: ')
         self.user, self.password = user, password
         
         # Get CSRF token
@@ -60,6 +69,7 @@ class Kattis(requests.Session):
         print(f'Candidate username(s): {candidate_usernames}')
         self.user = candidate_usernames[0]
 
+    @lru_cache
     def problems(self, show_solved=True, show_partial=True, show_tried=False, show_untried=False):
         '''
         Gets all Kattis problems based on some filters.
@@ -118,8 +128,9 @@ class Kattis(requests.Session):
                                 'category': category,
                                 'link': link
                             })
-        return data
+        return self.Result(data)
 
+    @lru_cache
     def plot_problems(self, filepath=None, show_solved=True, show_partial=True, show_tried=False, show_untried=False):
         '''
         Plots the histogram of Kattis problems to a specified filepath.
@@ -142,6 +153,7 @@ class Kattis(requests.Session):
             print(f'Saved to {filepath}')
         plt.show()
 
+    @lru_cache
     def list_unsolved(self, show_partial=True):
         '''
         Quick shortcut for all Kattis grinders to list all unsolved questions.
@@ -150,6 +162,7 @@ class Kattis(requests.Session):
         '''
         return self.problems(show_solved=False, show_partial=show_partial, show_tried=True, show_untried=True)
 
+    @lru_cache
     def problem(self, problem_id, *problem_ids):
         '''
         Obtain information about one or more specific problems.
@@ -253,8 +266,9 @@ class Kattis(requests.Session):
         for pid in set(problem_ids) - {problem_id}:
             prob = self.problem(pid)
             if prob: ret.append(prob[0])
-        return ret
+        return self.Result(ret)
 
+    @lru_cache
     def stats(self, language='', *languages):
         '''
         Collects the statistics of your accepted (AC) submissions based on the programming language(s) used.
@@ -322,8 +336,9 @@ class Kattis(requests.Session):
         ret = [{'id': k, **v} for k, v in data.items()]
         for lang in set(languages) - {language}:
             ret.extend(self.stats(lang))
-        return ret
+        return self.Result(ret)
 
+    @lru_cache
     def suggest(self):
         '''
         Retrieves suggested problems based on what you have solved so far.
@@ -346,8 +361,9 @@ class Kattis(requests.Session):
                 'pid': pid, 'difficulty': difficulty, 'name': name, 'link': link,
                 'min': float(pt.split('-')[0]), 'max': float(pt.split('-')[-1]),
             })
-        return data
+        return self.Result(data)
 
+    @lru_cache
     def ranklist(self, country=None, university=None):
         '''
         Retrieves the current ranklist.
@@ -382,9 +398,11 @@ class Kattis(requests.Session):
                     if 'users' in urlsplit:
                         new_data['username'] = urlsplit[-1] # guaranteed to exist
                     elif 'universities' in urlsplit:
-                        new_data['university'] = {'code': urlsplit[-1], 'name': title}
+                        new_data['university_code'] = urlsplit[-1]
+                        new_data['university'] = title
                     elif 'countries' in urlsplit:
-                        new_data['country'] = {'code': urlsplit[-1], 'name': title}
+                        new_data['country_code'] = urlsplit[-1]
+                        new_data['country'] = title
                 data.append(new_data)
         elif country != None:
             country_code = guess_id(country, COUNTRIES)
@@ -424,9 +442,12 @@ class Kattis(requests.Session):
                     'name': name,
                     'username': username,
                     'points': pts,
-                    'country': {'code': country_code, 'name': COUNTRIES[country_code]},
-                    'subdivision': {'code': subdivision_code, 'name': subdivision} if subdivision else None,
-                    'university': {'code': university_code, 'name': university} if university else None
+                    'country_code': country_code,
+                    'country': COUNTRIES[country_code],
+                    'subdivision_code': subdivision_code if subdivision else None,
+                    'subdivision': subdivision if subdivision else None,
+                    'university_code': university_code if university else None,
+                    'university': university if university else None
                 })
         else:
             university_code = guess_id(university, UNIVERSITIES)
@@ -466,8 +487,11 @@ class Kattis(requests.Session):
                     'name': name,
                     'username': username,
                     'points': pts,
-                    'university': {'code': university_code, 'name': country_code},
-                    'country': {'code': country_code, 'name': country} if country else None,
-                    'subdivision': {'code': subdivision_code, 'name': subdivision} if subdivision else None
+                    'country_code': country_code if country else None,
+                    'country': country if country else None,
+                    'subdivision_code': subdivision_code if subdivision else None,
+                    'subdivision': subdivision if subdivision else None,
+                    'university_code': university_code,
+                    'university': UNIVERSITIES[university_code]
                 })
-        return data
+        return self.Result(data)
