@@ -81,11 +81,11 @@ class Kattis(requests.Session):
 
         has_content = True
         params = {
-            'page': 0,
-            'show_solved': ['off', 'on'][show_solved],
-            'show_partial': ['off', 'on'][show_partial],
-            'show_tried': ['off', 'on'][show_tried],
-            'show_untried': ['off', 'on'][show_untried]
+            'page': 1,
+            'f_solved': ['off', 'on'][show_solved],
+            'f_partial-score': ['off', 'on'][show_partial],
+            'f_tried': ['off', 'on'][show_tried],
+            'f_untried': ['off', 'on'][show_untried]
         }
         data = []
 
@@ -101,7 +101,9 @@ class Kattis(requests.Session):
                     response = f.result()
                     soup = bs(response.content, features='lxml')
                     table = soup.find('table', class_='table2')
-                    for row in table.tbody.find_all('tr'):
+                    try: table_content = table.tbody.find_all('tr')
+                    except AttributeError: continue
+                    for row in table_content:
                         columns = row.find_all('td')
                         if columns:
                             has_content = True
