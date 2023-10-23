@@ -100,7 +100,7 @@ class Kattis(requests.Session):
                 for f in as_completed(futures):
                     response = f.result()
                     soup = bs(response.content, features='lxml')
-                    table = soup.find('table', class_='table2')
+                    table = soup.find('section', class_='strip strip-item-plain').find('table', class_='table2')
                     try: table_content = table.tbody.find_all('tr')
                     except AttributeError: continue
                     for row in table_content:
