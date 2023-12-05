@@ -113,11 +113,14 @@ class Kattis(requests.Session):
                             shortest = int(columns[3].text.replace('--', '-1'))
                             total = int(columns[4].text)
                             acc = int(columns[5].text)
-                            difficulty = float(re.findall('[\d\.]+', columns[7].text)[-1])
-                                # [0] instead of [-1] if we want to take min instead of max
-                                # for example:
-                                # - difficulty 9.1-9.6 -> [9.1, 9.6]
-                                # - difficulty 5.0 -> [5.0]
+                            try:
+                                difficulty = float(re.findall('[\d\.]+', columns[7].text)[-1])
+                                    # [0] instead of [-1] if we want to take min instead of max
+                                    # for example:
+                                    # - difficulty 9.1-9.6 -> [9.1, 9.6]
+                                    # - difficulty 5.0 -> [5.0]
+                            except:
+                                difficulty = None
                             try: category = re.findall('[A-Za-z]+', columns[7].text)[0]
                             except: category = 'N/A'
                             data.append({
