@@ -336,7 +336,7 @@ class Kattis(requests.Session):
                             else:
                                 data[pid] = max(
                                     data[pid], new_data,
-                                    key=lambda x: (x.get('score'), x['test_case_passed'], -float(x['runtime'] if '>' not in x['runtime'] else 1e9))
+                                    key=lambda x: (x.get('score', tc_pass/tc_full), x['test_case_passed'], -float(x['runtime'] if '>' not in x['runtime'] else 1e9))
                                 )
         ret = [{'id': k, **v} for k, v in data.items()]
         for lang in set(languages) - {language}:
