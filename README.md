@@ -24,6 +24,14 @@ kt = Kattis('username') # which will then prompts you for the password
 
 where `'username'` is your Kattis username/email and `'password'` is your Kattis account password. **Both should be provided as Python strings.**
 
+Similarly if you want to login to the NUS version of Kattis.
+
+```py
+from autokattis import NUSKattis
+kt = NUSKattis('username', 'password')
+kt = NUSKattis('username')
+```
+
 ### Problem-specific
 
 ```py
@@ -48,6 +56,7 @@ kt.stats()                  # your best submission for each problem
 kt.stats('Java')            # all your Java submissions
 kt.stats('Python3', 'Cpp')  # multiple languages
 
+kt.achievements()           # do I have any?
 kt.suggest()                # what's the next problem for me?
 ```
 

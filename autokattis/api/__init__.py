@@ -125,8 +125,10 @@ class Kattis(requests.Session):
                             except:
                                 difficulty = None
                             if len(columns) == 10:
-                                try: category = re.findall('[A-Za-z]+', columns[7].text)[0]
-                                except: category = 'N/A'
+                                try:
+                                    category = re.findall('[A-Za-z]+', columns[7].text)[0]
+                                except:
+                                    category = 'N/A'
                             else:
                                 category = 'N/A'
                             data.append({
@@ -159,7 +161,7 @@ class Kattis(requests.Session):
         hist = sns.histplot(data=df, x='difficulty', hue='category', multiple='stack', binwidth=0.1, hue_order=hue_order, palette=palette)
         hist.set(title=f'Solved Kattis Problems by {self.user} ({df.shape[0]})', xlabel='Difficulty')
         plt.legend(title='Category', loc='upper right', labels=hue_order[::-1])
-        plt.xticks([*range(math.floor(min(df.difficulty)), math.ceil(max(df.difficulty))+1)])
+        plt.xticks([*range(math.floor(min([d for d in df.difficulty if d], default=0)), math.ceil(max([d for d in df.difficulty if d], default=0))+1)])
         if filepath != None:
             plt.savefig(filepath)
             print(f'Saved to {filepath}')
@@ -279,6 +281,80 @@ class Kattis(requests.Session):
             prob = self.problem(pid)
             if prob: ret.append(prob[0])
         return self.Result(ret)
+
+    @lru_cache
+    def achievements(self, verbose=False):
+        '''
+        Lists down all your Kattis achievements. Flex it!
+        The parameter verbose adjusts whether you only want to include the problems
+            with at least one achievement or not.
+
+        Default: includes only solved questions with at least one achievement.
+        '''
+
+        has_content = True
+        params = {'page': 1}
+        data = []
+        with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            futures = []
+            while has_content:
+                has_content = False
+                futures.clear()
+                for _ in range(self.MAX_WORKERS):
+                    futures.append(executor.submit(self.get, f'{self.BASE_URL}/users/{self.user}', params=params.copy()))
+                    params['page'] += 1
+                for f in as_completed(futures):
+                    response = f.result()
+                    soup = bs(response.content, features='lxml')
+                    table = soup.find('table', class_='table2')
+                    for row in table.tbody.find_all('tr'):
+                        columns = row.find_all('td')
+                        columns_text = [column.text for column in columns if column.text]
+                        if columns_text:
+                            if columns[0].find('a') == None: continue
+                            has_content = True
+                            link = f"{self.BASE_URL}{columns[0].find('a').get('href')}"
+                            name = columns[0].text
+                            runtime = float(columns[1].text.replace('--', 'inf'))
+                            length = int(columns[2].text.replace('--', '-1'))
+                            if len(columns) == 3:
+                                if not verbose: continue
+                                achievement = ''
+                                difficulty = None
+                                category = 'N/A'
+                            elif len(columns) == 4:
+                                if not verbose: continue
+                                achievement = ''
+                                try:
+                                    difficulty = float(re.findall('[\d\.]+', columns[3].text)[-1])
+                                except:
+                                    difficulty = None
+                                try:
+                                    category = re.findall('[A-Za-z]+', columns[3].text)[0]
+                                except:
+                                    category = 'N/A'
+                            else:
+                                achievement = ', '.join(sorted(set(sp.text.strip() for sp in columns[3].find_all('span') if len(sp.find_all('span')) == 1)))
+                                if not achievement: continue
+                                try:
+                                    difficulty = float(re.findall('[\d\.]+', columns[4].text)[-1])
+                                except:
+                                    difficulty = None
+                                try:
+                                    category = re.findall('[A-Za-z]+', columns[4].text)[0]
+                                except:
+                                    category = 'N/A'
+                            data.append({
+                                'name': name,
+                                'id': link.split('/')[-1],
+                                'runtime': runtime,
+                                'length': length,
+                                'achievement': achievement,
+                                'difficulty': difficulty,
+                                'category': category,
+                                'link': link
+                            })
+        return self.Result(sorted(data, key=lambda x: x['id']))
 
     @lru_cache
     def stats(self, language='', *languages):
@@ -510,5 +586,6 @@ class Kattis(requests.Session):
 
 class NUSKattis(Kattis):
     def __init__(self, user, password=None):
+        print('Logging in to NUS Kattis...', flush=True)
         self.set_base_url('https://nus.kattis.com')
         super().__init__(user, password)
