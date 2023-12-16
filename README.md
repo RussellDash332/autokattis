@@ -47,6 +47,9 @@ kt.plot_problems(show_partial=False)        # plot fully solved submissions
 
 kt.problem('2048')                          # fetch info about a problem
 kt.problem('2048', 'abinitio', 'dasort')    # fetch multiple in one
+
+kt.problem_authors()                        # list down all problem authors
+kt.problem_sources()                        # list down all problem sources
 ```
 
 ### User-specific

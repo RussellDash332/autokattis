@@ -103,6 +103,7 @@ class Kattis(requests.Session):
                 for f in as_completed(futures):
                     response = f.result()
                     soup = bs(response.content, features='lxml')
+                    if not soup: continue
                     table = soup.find('section', class_='strip strip-item-plain').find('table', class_='table2')
                     try: table_content = table.tbody.find_all('tr')
                     except AttributeError: continue
@@ -214,11 +215,10 @@ class Kattis(requests.Session):
                     except:
                         category = 'N/A'
                 elif div_text[0] == 'Source & License':
-                    try:
-                        author, source = div_text[1:]
-                    except:
-                        author = div_text[1]
-                        source = ''
+                    text_links = [(s.text.strip(), [a.get('href').strip('/') for a in s.find_all('a')]) for s in d.find_all('span') if s.text.strip()]
+                    for text, links in text_links:
+                        if any(link.startswith('problem-authors') for link in links): author = text
+                        if any(link.startswith('problem-sources') for link in links): source = text
                 elif div_text[0] == 'Attachments' or div_text[0] == 'Downloads':
                     for url, fn in [(f"{self.BASE_URL}{a.get('href')}", a.get('download') or a.get('href').split('/')[-1]) for a in d.find_all('a')]:
                         if url.endswith('zip'):
@@ -613,8 +613,94 @@ class Kattis(requests.Session):
                 })
         return self.Result(data)
 
+    @lru_cache
+    def problem_authors(self):
+        '''
+        Lists down all problem authors alongside with the number of problems one has
+            authored as well as the average difficulty.
+        '''
+
+        response = self.get(f'{self.BASE_URL}/problem-authors')
+        soup = bs(response.content, features='lxml')
+        table = soup.find('table', class_='table2')
+        data = []
+        for row in table.tbody.find_all('tr'):
+            columns = row.find_all('td')
+            columns_text = [column.text.strip() for column in columns]
+            columns_url = [column.find_all('a') for column in columns]
+            name = columns_text[0].strip()
+            link = f'{self.BASE_URL}{columns_url[0][0].get("href")}'
+            num_problems = int(columns_text[1])
+            try:
+                difficulty = float(re.findall('[\d\.]+', columns_text[2])[-1])
+            except:
+                difficulty = None
+            try:
+                category = re.findall('[A-Za-z]+', columns_text[2])[0]
+            except:
+                category = 'N/A'
+            data.append({
+                'name': name,
+                'problems': num_problems,
+                'avg_difficulty': difficulty,
+                'avg_category': category,
+                'link': link
+            })
+        return self.Result(data)
+    
+    @lru_cache
+    def problem_sources(self):
+        '''
+        Lists down all problem sources alongside with the number of problems one comes from
+            as well as the average difficulty.
+        '''
+
+        response = self.get(f'{self.BASE_URL}/problem-sources')
+        soup = bs(response.content, features='lxml')
+        table = soup.find('table', class_='table2')
+        data = []
+        for row in table.tbody.find_all('tr'):
+            columns = row.find_all('td')
+            columns_text = [column.text.strip() for column in columns]
+            columns_url = [column.find_all('a') for column in columns]
+            name = columns_text[0].strip()
+            link = f'{self.BASE_URL}{columns_url[0][0].get("href")}'
+            num_problems = int(columns_text[1])
+            try:
+                difficulty = float(re.findall('[\d\.]+', columns_text[2])[-1])
+            except:
+                difficulty = None
+            try:
+                category = re.findall('[A-Za-z]+', columns_text[2])[0]
+            except:
+                category = 'N/A'
+            data.append({
+                'name': name,
+                'problems': num_problems,
+                'avg_difficulty': difficulty,
+                'avg_category': category,
+                'link': link
+            })
+        return self.Result(data)
+
 class NUSKattis(Kattis):
     def __init__(self, user, password=None):
         print('Logging in to NUS Kattis...', flush=True)
         self.set_base_url('https://nus.kattis.com')
         super().__init__(user, password)
+
+    @lru_cache
+    def problem_authors(self):
+        '''
+        Not available in NUS Kattis.
+        '''
+
+        return self.Result([])
+    
+    @lru_cache
+    def problem_sources(self):
+        '''
+        Not available in NUS Kattis.
+        '''
+
+        return self.Result([])

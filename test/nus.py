@@ -45,6 +45,16 @@ ret = kt.problem('2048', 'abinitio', 'dasort')      # fetch multiple in one
 print(df:=ret.to_df())
 df.to_csv('test_nus_problem_multiple.csv', index=False)
 
+print('=== TEST PROBLEM AUTHORS ===')
+ret = kt.problem_authors()                          # list down all problem authors
+print(df:=ret.to_df())
+df.to_csv('test_nus_problem_authors.csv', index=False)
+
+print('=== TEST PROBLEM SOURCES ===')
+ret = kt.problem_sources()                          # list down all problem sources
+print(df:=ret.to_df())
+df.to_csv('test_nus_problem_sources.csv', index=False)
+
 print('=== TEST STATS (DEFAULT, ALL) ===')
 ret = kt.stats()                                    # your best submission for each problem
 print(df:=ret.to_df())
