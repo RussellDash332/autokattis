@@ -259,22 +259,27 @@ class Kattis(requests.Session):
         meta['submissions'] = []
         soup = bs(response.content, features='lxml')
         table = soup.find('table', id='submissions')
-        for row in table.tbody.find_all('tr'):
-            columns = row.find_all('td')
-            columns_text = [column.text for column in columns if column.text]
-            if columns_text:
-                status, runtime, language, tc, _ = columns_text
-                link = f"{self.BASE_URL}{columns[-1].find('a').get('href')}"
-                runtime = ' '.join(runtime.split())
-                test_case_passed, test_case_full = map(int, tc.split('/'))
-                meta['submissions'].append({
-                    'status': status,
-                    'runtime': runtime,
-                    'language': language,
-                    'test_case_passed': test_case_passed,
-                    'test_case_full': test_case_full,
-                    'link': link
-                })
+        if table:
+            for row in table.tbody.find_all('tr'):
+                columns = row.find_all('td')
+                columns_text = [column.text.strip() for column in columns if column.text.strip()]
+                if columns_text:
+                    try:
+                        status, runtime, language, tc, *_ = columns_text
+                        runtime = ' '.join(runtime.split())
+                        test_case_passed, test_case_full = map(int, tc.split('/'))
+                    except:
+                        status, language, *_ = columns_text
+                        runtime = test_case_passed = test_case_full = None
+                    link = f"{self.BASE_URL}{columns[-1].find('a').get('href')}"
+                    meta['submissions'].append({
+                        'status': status,
+                        'runtime': runtime,
+                        'language': language,
+                        'test_case_passed': test_case_passed,
+                        'test_case_full': test_case_full,
+                        'link': link
+                    })
 
         ret = [data]
         for pid in set(problem_ids) - {problem_id}:
