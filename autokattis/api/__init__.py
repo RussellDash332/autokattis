@@ -55,7 +55,7 @@ class Kattis(requests.Session):
             'password': self.password
         }
         response = self.post(f'{self.BASE_URL}/login/email', data=data)
-        assert response.url == 'https://open.kattis.com/', 'Cannot login to Kattis'
+        assert response.url.startswith(self.BASE_URL), 'Cannot login to Kattis'
         print('Logged in to Kattis!', flush=True)
 
         self.homepage = bs(response.content, features='lxml')
@@ -124,10 +124,14 @@ class Kattis(requests.Session):
                                     # - difficulty 5.0 -> [5.0]
                             except:
                                 difficulty = None
-                            try: category = re.findall('[A-Za-z]+', columns[7].text)[0]
-                            except: category = 'N/A'
+                            if len(columns) == 10:
+                                try: category = re.findall('[A-Za-z]+', columns[7].text)[0]
+                                except: category = 'N/A'
+                            else:
+                                category = 'N/A'
                             data.append({
                                 'name': name,
+                                'id': link.split('/')[-1],
                                 'fastest': fastest,
                                 'shortest': shortest,
                                 'total': total,
@@ -136,7 +140,7 @@ class Kattis(requests.Session):
                                 'category': category,
                                 'link': link
                             })
-        return self.Result(data)
+        return self.Result(sorted(data, key=lambda x: x['id']))
 
     @lru_cache
     def plot_problems(self, filepath=None, show_solved=True, show_partial=True, show_tried=False, show_untried=False):
@@ -344,7 +348,7 @@ class Kattis(requests.Session):
         ret = [{'id': k, **v} for k, v in data.items()]
         for lang in set(languages) - {language}:
             ret.extend(self.stats(lang))
-        return self.Result(ret)
+        return self.Result(sorted(ret, key=lambda x: x['id']))
 
     @lru_cache
     def suggest(self):
