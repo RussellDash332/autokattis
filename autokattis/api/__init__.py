@@ -105,8 +105,10 @@ class Kattis(requests.Session):
                     soup = bs(response.content, features='lxml')
                     if not soup: continue
                     table = soup.find('section', class_='strip strip-item-plain').find('table', class_='table2')
-                    try: table_content = table.tbody.find_all('tr')
-                    except AttributeError: continue
+                    try:
+                        table_content = table.tbody.find_all('tr')
+                    except AttributeError:
+                        continue
                     for row in table_content:
                         columns = row.find_all('td')
                         if columns:
@@ -493,7 +495,12 @@ class Kattis(requests.Session):
 
         if country == university == None:
             soup = self.homepage
-            table = soup.find_all('table', class_='table2 report_grid-problems_table')[1]
+            try:
+                table = soup.find_all('table', class_='table2 report_grid-problems_table')[1]
+            except:
+                return self.Result([])
+            if not table:
+                return self.Result([])
             data = []
             for row in table.tbody.find_all('tr'):
                 columns = row.find_all('td')
@@ -525,8 +532,12 @@ class Kattis(requests.Session):
             country_code = guess_id(country, COUNTRIES)
             response = self.get(f'{self.BASE_URL}/countries/{country_code}')
             soup = bs(response.content, features='lxml')
-            table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
-            if not table: return []
+            try:
+                table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
+            except:
+                return self.Result([])
+            if not table:
+                return self.Result([])
             data = []
             headers = [re.findall(r'[A-Za-z]+', h.text)[0] for h in table.find_all('th')]
             for row in table.tbody.find_all('tr'):
@@ -571,7 +582,8 @@ class Kattis(requests.Session):
             response = self.get(f'{self.BASE_URL}/universities/{university_code}')
             soup = bs(response.content, features='lxml')
             table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
-            if not table: return []
+            if not table:
+                return self.Result([])
             data = []
             headers = [re.findall(r'[A-Za-z]+', h.text)[0] for h in table.find_all('th')]
             for row in table.tbody.find_all('tr'):
@@ -621,8 +633,13 @@ class Kattis(requests.Session):
         '''
 
         response = self.get(f'{self.BASE_URL}/problem-authors')
-        soup = bs(response.content, features='lxml')
+        try:
+            soup = bs(response.content, features='lxml')
+        except:
+            return self.Result([])
         table = soup.find('table', class_='table2')
+        if not table:
+            return self.Result([])
         data = []
         for row in table.tbody.find_all('tr'):
             columns = row.find_all('td')
@@ -656,8 +673,13 @@ class Kattis(requests.Session):
         '''
 
         response = self.get(f'{self.BASE_URL}/problem-sources')
-        soup = bs(response.content, features='lxml')
+        try:
+            soup = bs(response.content, features='lxml')
+        except:
+            return self.Result([])
         table = soup.find('table', class_='table2')
+        if not table:
+            return self.Result([])
         data = []
         for row in table.tbody.find_all('tr'):
             columns = row.find_all('td')
@@ -688,19 +710,3 @@ class NUSKattis(Kattis):
         print('Logging in to NUS Kattis...', flush=True)
         self.set_base_url('https://nus.kattis.com')
         super().__init__(user, password)
-
-    @lru_cache
-    def problem_authors(self):
-        '''
-        Not available in NUS Kattis.
-        '''
-
-        return self.Result([])
-    
-    @lru_cache
-    def problem_sources(self):
-        '''
-        Not available in NUS Kattis.
-        '''
-
-        return self.Result([])
