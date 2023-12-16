@@ -6,3 +6,4 @@ env.py
 build/
 dist/
 *egg-info/
+sync*.py
