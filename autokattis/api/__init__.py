@@ -28,6 +28,9 @@ class Kattis(requests.Session):
         def __init__(self, data):
             super().__init__(data)
             self.to_df = lambda: pd.DataFrame(data)
+    
+    def set_base_url(self, url):
+        self.BASE_URL = url
 
     def __init__(self, user, password=None):
         '''
@@ -500,3 +503,8 @@ class Kattis(requests.Session):
                     'university': UNIVERSITIES[university_code]
                 })
         return self.Result(data)
+
+class NUSKattis(Kattis):
+    def __init__(self, user, password=None):
+        self.set_base_url('https://nus.kattis.com')
+        super().__init__(user, password)

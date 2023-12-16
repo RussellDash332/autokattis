@@ -1,1 +1,1 @@
-from .api import Kattis
+from .api import Kattis, NUSKattis

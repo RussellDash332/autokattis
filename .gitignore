@@ -2,6 +2,7 @@ __pycache__/
 env.py
 *.html
 *.png
+*.csv
 build/
 dist/
 *egg-info/
