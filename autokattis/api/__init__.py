@@ -77,7 +77,7 @@ class Kattis(requests.Session):
         '''
         Gets all Kattis problems based on some filters.
         Returns a JSON-like structure with these fields:
-            name, fastest, shortest, total, acc, difficulty, category, link
+            name, id, fastest, shortest, total, acc, difficulty, category, link
 
         Default: all solved and partially solved problems.
         '''
@@ -191,37 +191,58 @@ class Kattis(requests.Session):
 
         soup = bs(response.content, features='lxml')
         body = soup.find('div', class_='problembody')
-        data = {'id': problem_id, 'text': body.text.strip(), 'metadata': {}}
-        meta = data['metadata']
+        data = {'id': problem_id, 'text': body.text.strip()}
 
-        for div in soup.find_all('div', class_='metadata_list-item'):
-            div_text = div.text.strip().split('\n')
-            if div_text[0] == 'CPU Time limit':
-                meta['cpu'] = div_text[-1].strip()
-            elif div_text[0] == 'Memory limit':
-                meta['memory'] = div_text[-1].strip()
-            elif div_text[0] == 'Difficulty':
-                meta['difficulty'] = float(re.findall('[\d\.]+', div_text[-1])[-1])
-                meta['category'] = re.findall('[A-Za-z]+', div_text[-1])[0]
-            elif div_text[0] == 'Author':
-                meta['author'] = div_text[-1].strip()
-            elif div_text[0] == 'Source':
-                meta['source'] = div_text[-1].strip()
-            elif div_text[0] == 'Attachments' or div_text[0] == 'Downloads':
-                meta['files'] = meta.get('files', {})
-                for url, fn in [(f"{self.BASE_URL}{a.get('href')}", a.get('download') or a.get('href').split('/')[-1]) for a in div.find_all('a')]:
-                    if url.endswith('zip'):
-                        with zipfile.ZipFile(io.BytesIO(self.get(url).content)) as z:
-                            meta['files'][fn] = {}
-                            for inner_fn in z.namelist():
-                                with z.open(inner_fn) as inner_file:
-                                    meta['files'][fn][inner_fn] = inner_file.read().decode("utf-8")
-                    else:
-                        meta['files'][fn] = self.get(url).text
+        cpu = memory = author = source = ''
+        difficulty = None
+        category = 'N/A'
+        files = {}
+        for div in soup.find_all('div', class_='metadata-grid'):
+            for d in div.find_all('div', class_='card'):
+                div_text = [s.text.strip() for s in d.find_all('span') if s.text.strip()]
+                if div_text[0] == 'CPU Time limit':
+                    cpu = div_text[-1].strip()
+                elif div_text[0] == 'Memory limit':
+                    memory = div_text[-1].strip()
+                elif len(div_text) > 1 and div_text[1] == 'Difficulty':
+                    try:
+                        difficulty = float(div_text[0])
+                    except:
+                        difficulty = None
+                    try:
+                        category = div_text[2].strip()
+                    except:
+                        category = 'N/A'
+                elif div_text[0] == 'Source & License':
+                    try:
+                        author, source = div_text[1:]
+                    except:
+                        author = div_text[1]
+                        source = ''
+                elif div_text[0] == 'Attachments' or div_text[0] == 'Downloads':
+                    for url, fn in [(f"{self.BASE_URL}{a.get('href')}", a.get('download') or a.get('href').split('/')[-1]) for a in d.find_all('a')]:
+                        if url.endswith('zip'):
+                            with zipfile.ZipFile(io.BytesIO(self.get(url).content)) as z:
+                                files[fn] = {}
+                                for inner_fn in z.namelist():
+                                    with z.open(inner_fn) as inner_file:
+                                        files[fn][inner_fn] = inner_file.read().decode("utf-8")
+                        else:
+                            files[fn] = self.get(url).text
+        data = {
+            **data,
+            'cpu': cpu,
+            'memory': memory,
+            'difficulty': difficulty,
+            'category': category,
+            'author': author,
+            'source': source,
+            'files': files
+        }
 
         # statistics
         response = self.get(f'{self.BASE_URL}/problems/{problem_id}/statistics')
-        meta['statistics'] = {}
+        data['statistics'] = {}
         soup = bs(response.content, features='lxml')
         category_map = {}
         for option in soup.find_all('option'):
@@ -230,9 +251,9 @@ class Kattis(requests.Session):
             table = section.find('table', class_='table2 report_grid-problems_table')
             section_id = section.get('id')
             language, description = category_map[section_id]
-            meta['statistics'][language] = meta['statistics'].get(language, {})
-            meta['statistics'][language][['fastest', 'shortest']['shortest' in section_id]] = {}
-            stats = meta['statistics'][language][['fastest', 'shortest']['shortest' in section_id]]
+            data['statistics'][language] = data['statistics'].get(language, {})
+            data['statistics'][language][['fastest', 'shortest']['shortest' in section_id]] = {}
+            stats = data['statistics'][language][['fastest', 'shortest']['shortest' in section_id]]
             if table:
                 stats['ranklist'] = []
                 for row in table.tbody.find_all('tr'):
@@ -256,7 +277,7 @@ class Kattis(requests.Session):
 
         # my submissions
         response = self.get(f'{self.BASE_URL}/problems/{problem_id}?tab=submissions')
-        meta['submissions'] = []
+        data['submissions'] = []
         soup = bs(response.content, features='lxml')
         table = soup.find('table', id='submissions')
         if table:
@@ -272,7 +293,7 @@ class Kattis(requests.Session):
                         status, language, *_ = columns_text
                         runtime = test_case_passed = test_case_full = None
                     link = f"{self.BASE_URL}{columns[-1].find('a').get('href')}"
-                    meta['submissions'].append({
+                    data['submissions'].append({
                         'status': status,
                         'runtime': runtime,
                         'language': language,
@@ -397,7 +418,7 @@ class Kattis(requests.Session):
                     table = soup.find('table', class_='table2 report_grid-problems_table double-rows')
                     for row in table.tbody.find_all('tr'):
                         columns = row.find_all('td')
-                        columns_text = [column.text for column in columns if column.text]
+                        columns_text = [column.text.strip() for column in columns if column.text.strip()]
                         if columns_text:
                             has_content = True
                             link = f"{self.BASE_URL}/submissions/{columns[-1].find('a').get('href').split('/')[-1]}"
@@ -439,7 +460,10 @@ class Kattis(requests.Session):
         '''
 
         soup = self.homepage
-        table = soup.find_all('table', class_='table2 report_grid-problems_table')[0]
+        try:
+            table = soup.find_all('table', class_='table2 report_grid-problems_table')[0]
+        except:
+            return self.Result([])
         data = []
         for row in table.tbody.find_all('tr'):
             header = row.find('th')
