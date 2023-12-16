@@ -60,6 +60,11 @@ ret = kt.stats('Python3', 'Cpp')                    # multiple languages
 print(df:=ret.to_df())
 df.to_csv('test_stats_multiple.csv', index=False)
 
+print('=== TEST ACHIEVEMENTS ===')
+ret = kt.achievements()                             # do I have any?
+print(df:=ret.to_df())
+df.to_csv('test_achievements.csv', index=False)
+
 print('=== TEST SUGGEST ===')
 ret = kt.suggest()                                  # what's the next problem for me?
 print(df:=ret.to_df())

@@ -28,7 +28,7 @@ ret = kt.plot_problems()                            # plot the points distributi
 print('Done!')
 
 print('=== TEST PLOT PROBLEMS (TO FILEPATH) ===')
-ret = kt.plot_problems(filepath='plot.png')         # save to a filepath
+ret = kt.plot_problems(filepath='nus_plot.png')     # save to a filepath
 print('Done!')
 
 print('=== TEST PLOT PROBLEMS (NO PARTIAL) ===')
@@ -59,6 +59,11 @@ print('=== TEST STATS (MULTIPLE) ===')
 ret = kt.stats('Python3', 'Cpp')                    # multiple languages
 print(df:=ret.to_df())
 df.to_csv('test_nus_stats_multiple.csv', index=False)
+
+print('=== TEST ACHIEVEMENTS ===')
+ret = kt.achievements()                             # do I have any?
+print(df:=ret.to_df())
+df.to_csv('test_nus_achievements.csv', index=False)
 
 print('=== TEST SUGGEST ===')
 ret = kt.suggest()                                  # what's the next problem for me?
