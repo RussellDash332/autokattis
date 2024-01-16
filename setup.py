@@ -5,7 +5,7 @@ with open('README.md') as readme_file:
 
 setup_args = dict(
     name='autokattis',
-    version='1.5',
+    version='1.6',
     description='Updated Kattis API wrapper',
     long_description_content_type="text/markdown",
     long_description=README,
@@ -18,9 +18,9 @@ setup_args = dict(
         'requests',
         'beautifulsoup4',
         'lxml',
-        'pandas==2.0.3',
+        'pandas',
         'matplotlib',
-        'seaborn==0.12.2',
+        'seaborn',
         'thefuzz',
         'thefuzz[speedup]',
     ],

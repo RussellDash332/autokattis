@@ -73,6 +73,15 @@ kt.ranklist(university='National University of Singapore')  # university leaderb
 kt.ranklist(university='nus.edu.sg')                        # use university domain instead
 ```
 
+### NUS-specific
+
+```py
+kt.courses()                                    # current and recently ended courses
+kt.offerings('CS3233')                          # course offerings
+kt.assignments('CS3233_S2_AY2223')              # course assignments but course ID not provided
+kt.assignments('CS3233_S2_AY2223', 'CS3233')    # course assignments
+```
+
 ### Convert to DataFrame
 
 As simple as this!

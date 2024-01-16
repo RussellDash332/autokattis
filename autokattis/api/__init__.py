@@ -18,19 +18,41 @@ from ..database import LANGUAGES, COUNTRIES, UNIVERSITIES
 from ..utils import guess_id
 
 warnings.warn = lambda *args, **kwargs: None # suppress warnings
+truncate = lambda text: text if (new_text:=text.replace('  ', ' ')) == text else truncate(new_text)
 
 class Kattis(requests.Session):
 
     BASE_URL = 'https://open.kattis.com'
     MAX_WORKERS = 6
 
+    def new_get(self, *args, **kwargs):
+        try:
+            return self.get(*args, **kwargs)
+        except:
+            return self.new_get(*args, **kwargs)
+    
+    def new_post(self, *args, **kwargs):
+        try:
+            return self.post(*args, **kwargs)
+        except:
+            return self.new_post(*args, **kwargs)
+
     class Result(list):
         def __init__(self, data):
             super().__init__(data)
             self.to_df = lambda: pd.DataFrame(data)
-    
+
+    def get_base_url(self):
+        return self.BASE_URL
+
     def set_base_url(self, url):
         self.BASE_URL = url
+
+    def get_homepage(self):
+        return self.homepage
+
+    def set_homepage(self, hp):
+        self.homepage = hp
 
     def __init__(self, user, password=None):
         '''
@@ -43,7 +65,7 @@ class Kattis(requests.Session):
         self.user, self.password = user, password
         
         # Get CSRF token
-        response = self.get(f'{self.BASE_URL}/login/email')
+        response = self.new_get(f'{self.BASE_URL}/login/email')
         regex_result = re.findall(r'value="(\d+)"', response.text)
         assert len(regex_result) == 1, f'Regex found several possible CSRF tokens, {regex_result}'
         self.csrf_token = regex_result[0]
@@ -54,9 +76,8 @@ class Kattis(requests.Session):
             'user': self.user,
             'password': self.password
         }
-        response = self.post(f'{self.BASE_URL}/login/email', data=data)
+        response = self.new_post(f'{self.BASE_URL}/login/email', data=data)
         assert response.url.startswith(self.BASE_URL), 'Cannot login to Kattis'
-        print('Logged in to Kattis!', flush=True)
 
         self.homepage = bs(response.content, features='lxml')
         names = []
@@ -67,10 +88,12 @@ class Kattis(requests.Session):
                 if len(paths) > 2 and paths[1] == 'users':
                     names.append(paths[2])
         ctr = Counter(names)
+        assert ctr, 'There are issues when logging in to Kattis, please check your username again'
         max_freq = max(ctr.values())
         candidate_usernames = [name for name in ctr if ctr[name] == max_freq]
-        print(f'Candidate username(s): {candidate_usernames}')
+        print(f'Candidate username(s): {candidate_usernames}', flush=True)
         self.user = candidate_usernames[0]
+        print('Successfully logged in to Kattis!', flush=True)
 
     @lru_cache
     def problems(self, show_solved=True, show_partial=True, show_tried=False, show_untried=False):
@@ -98,7 +121,7 @@ class Kattis(requests.Session):
                 has_content = False
                 futures.clear()
                 for _ in range(self.MAX_WORKERS):
-                    futures.append(executor.submit(self.get, f'{self.BASE_URL}/problems', params=params.copy()))
+                    futures.append(executor.submit(self.new_get, f'{self.BASE_URL}/problems', params=params.copy()))
                     params['page'] += 1
                 for f in as_completed(futures):
                     response = f.result()
@@ -116,7 +139,7 @@ class Kattis(requests.Session):
                             link = f"{self.BASE_URL}{columns[0].find('a').get('href')}"
                             name = columns[0].text
                             fastest = float(columns[2].text.replace('--', 'inf'))
-                            shortest = int(columns[3].text.replace('--', '-1'))
+                            shortest = int(float(columns[3].text.replace('--', '-1')))
                             total = int(columns[4].text)
                             acc = int(columns[5].text)
                             try:
@@ -344,7 +367,7 @@ class Kattis(requests.Session):
                             link = f"{self.BASE_URL}{columns[0].find('a').get('href')}"
                             name = columns[0].text
                             runtime = float(columns[1].text.replace('--', 'inf'))
-                            length = int(columns[2].text.replace('--', '-1'))
+                            length = int(float(columns[2].text.replace('--', '-1')))
                             if len(columns) == 3:
                                 if not verbose: continue
                                 achievement = ''
@@ -461,7 +484,7 @@ class Kattis(requests.Session):
         Returns a JSON-like structure containing the suggested problems points and its difficulty.
         '''
 
-        soup = self.homepage
+        soup = self.get_homepage()
         try:
             table = soup.find_all('table', class_='table2 report_grid-problems_table')[0]
         except:
@@ -494,7 +517,7 @@ class Kattis(requests.Session):
         assert country == None or university == None, 'Both of country and university cannot be given at the same time!'
 
         if country == university == None:
-            soup = self.homepage
+            soup = self.get_homepage()
             try:
                 table = soup.find_all('table', class_='table2 report_grid-problems_table')[1]
             except:
@@ -710,3 +733,106 @@ class NUSKattis(Kattis):
         print('Logging in to NUS Kattis...', flush=True)
         self.set_base_url('https://nus.kattis.com')
         super().__init__(user, password)
+        response = self.get(self.get_base_url())
+        self.set_homepage(bs(response.content, features='lxml'))
+
+    @lru_cache
+    def courses(self):
+        '''
+        Lists down only the current courses offered and the courses with recently ended offerings in NUS Kattis.
+        It does not list all existing courses in NUS Kattis.
+        '''
+
+        tables = self.get_homepage().find_all('table', class_='table2')
+        if not tables:
+            return self.Result([])
+        data = []
+        for table in tables:
+            for row in table.find_all('tr'):
+                columns = row.find_all('td')
+                columns_text = [truncate(column.text.strip()) for column in columns]
+                columns_url = [column.find('a') for column in columns]
+                if columns_text:
+                    href = columns_url[0].get('href')
+                    data.append({
+                        'name': columns_text[0],
+                        'url': self.get_base_url() + href,
+                        'course_id': href.split('/')[-1]
+                    })
+        return self.Result(sorted(data, key=lambda r: r['course_id']))
+
+    @lru_cache
+    def offerings(self, course_id):
+        '''
+        Lists down all offerings within a specific NUS Kattis course.
+        '''
+
+        response = self.get(f'{self.get_base_url()}/courses/{course_id}')
+        soup = bs(response.content, features='lxml')
+        table = soup.find('table', class_='table2')
+        if not table:
+            return self.Result([])
+        data = []
+        for row in table.tbody.find_all('tr'):
+            columns = row.find_all('td')
+            try:
+                name, end_date = [truncate(column.text.strip()) for column in columns]
+                link, _ = [column.find('a') for column in columns]
+                data.append({
+                    'name': name,
+                    'end_date': end_date.split()[1][:-1],
+                    'link': self.get_base_url() + link.get('href')
+                })
+            except:
+                pass # ignore for now
+        return self.Result(sorted(data, key=lambda r: r['end_date'], reverse=True))
+
+    @lru_cache
+    def assignments(self, offering_id, course_id=None):
+        '''
+        Lists down all assignments within a specific NUS Kattis course offering.
+        Problem IDs within a specific assignment are comma-separated, e.g. pid1,pid2,pid3
+        '''
+
+        if course_id == None:
+            # try to guess
+            for cid in self.courses().to_df().course_id:
+                if offering_id in [*self.offerings(cid).to_df().name]:
+                    course_id = cid
+                    break
+            assert course_id != None, 'Cannot guess course ID automatically, please provide one'
+            print('Guessed course ID:', course_id, flush=True)
+        response = self.get(f'{self.get_base_url()}/courses/{course_id}/{offering_id}')
+        soup = bs(response.content, features='lxml')
+        data = []
+        for div in soup.find_all('div', {'class': 'strip-row w-auto'}):
+            h2 = div.find('h2')
+            if h2 != None and h2.text.strip() == 'Assignments':
+                toggle = False
+                for asg in div.find_all('li'):
+                    if asg.find('span') == None:
+                        if toggle:
+                            data.append({
+                                'id': aid,
+                                'name': name,
+                                'status': status,
+                                'link': link,
+                                'problems': ','.join(pids)
+                            })
+                        name, status = truncate(asg.text.strip()).split('\n')
+                        status = status.replace('(', '').replace(')', '')
+                        link = self.get_base_url() + asg.find('a').get('href')
+                        aid = link.split('/')[-1]
+                        pids = []
+                        toggle = True
+                    else:
+                        pids.append(asg.text.strip())
+                if toggle:
+                    data.append({
+                        'id': aid,
+                        'name': name,
+                        'status': status,
+                        'link': link,
+                        'problems': ','.join(pids)
+                    })
+        return self.Result(data)

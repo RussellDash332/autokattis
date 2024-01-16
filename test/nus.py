@@ -104,3 +104,23 @@ print('=== TEST RANKLIST (DOMAIN) ===')
 ret = kt.ranklist(university='nus.edu.sg')                        # use university domain instead
 print(df:=ret.to_df())
 df.to_csv('test_nus_ranklist_university_domain.csv', index=False)
+
+print('=== TEST COURSES ===')
+ret = kt.courses()                                      # current and recently ended courses
+print(df:=ret.to_df())
+df.to_csv('test_nus_courses.csv', index=False)
+
+print('=== TEST OFFERINGS (CS3233) ===')
+ret = kt.offerings('CS3233')                            # course offerings
+print(df:=ret.to_df())
+df.to_csv('test_nus_offerings.csv', index=False)
+
+print('=== TEST ASSIGNMENTS (GUESS) ===')
+ret = kt.assignments('CS3233_S2_AY2223')                # course assignments but course ID not provided
+print(df:=ret.to_df())
+df.to_csv('test_nus_assignments_guess.csv', index=False)
+
+print('=== TEST ASSIGNMENTS (MANUAL) ===')
+ret = kt.assignments('CS3233_S2_AY2223', 'CS3233')      # course assignments
+print(df:=ret.to_df())
+df.to_csv('test_nus_assignments_manual.csv', index=False)
