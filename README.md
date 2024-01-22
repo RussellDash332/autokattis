@@ -67,6 +67,7 @@ kt.suggest()                # what's the next problem for me?
 
 ```py
 kt.ranklist()                                               # people around you
+kt.ranklist(top_100=True)                                   # show top 100
 kt.ranklist(country='Singapore')                            # country leaderboard
 kt.ranklist(country='SGP')                                  # use alpha-3 code instead
 kt.ranklist(university='National University of Singapore')  # university leaderboard

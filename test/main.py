@@ -85,6 +85,11 @@ ret = kt.ranklist()                                               # people aroun
 print(df:=ret.to_df())
 df.to_csv('test_ranklist_default.csv', index=False)
 
+print('=== TEST RANKLIST (TOP 100) ===')
+ret = kt.ranklist(top_100=True)                                   # show top 100
+print(df:=ret.to_df())
+df.to_csv('test_ranklist_top100.csv', index=False)
+
 print('=== TEST RANKLIST (COUNTRY) ===')
 ret = kt.ranklist(country='Singapore')                            # country leaderboard
 print(df:=ret.to_df())

@@ -506,54 +506,18 @@ class Kattis(requests.Session):
         return self.Result(data)
 
     @lru_cache
-    def ranklist(self, country=None, university=None):
+    def ranklist(self, top_100=False, country=None, university=None):
         '''
         Retrieves the current ranklist.
-        Country or university can be specified, but not both.
+        Query for top 100 takes precedence over query for country or university.
+        Otherwise, country or university can be specified, but not both.
 
         Default: ranklist of people around you.
         '''
 
-        assert country == None or university == None, 'Both of country and university cannot be given at the same time!'
-
-        if country == university == None:
-            soup = self.get_homepage()
-            try:
-                table = soup.find_all('table', class_='table2 report_grid-problems_table')[1]
-            except:
-                return self.Result([])
-            if not table:
-                return self.Result([])
-            data = []
-            for row in table.tbody.find_all('tr'):
-                columns = row.find_all('td')
-                rank, name, pts, *_ = [column.text.strip() for column in columns]
-                rank = int(rank) if rank.isdigit() else None
-                pts = float(re.findall(r'[\d\.]+', pts)[0])
-                findall = columns[1].find_all('a')
-
-                new_data = {
-                    'rank': rank,
-                    'name': name,
-                    'points': pts,
-                    'country': None,
-                    'university': None
-                }
-
-                for urlsplit, title in [(column.get('href').split('/'), column.get('title')) for column in findall]:
-                    assert sum(x in urlsplit for x in ['users', 'universities', 'countries']) == 1, 'Only one field should be present'
-                    if 'users' in urlsplit:
-                        new_data['username'] = urlsplit[-1] # guaranteed to exist
-                    elif 'universities' in urlsplit:
-                        new_data['university_code'] = urlsplit[-1]
-                        new_data['university'] = title
-                    elif 'countries' in urlsplit:
-                        new_data['country_code'] = urlsplit[-1]
-                        new_data['country'] = title
-                data.append(new_data)
-        elif country != None:
-            country_code = guess_id(country, COUNTRIES)
-            response = self.get(f'{self.BASE_URL}/countries/{country_code}')
+        data = []
+        if top_100:
+            response = self.get(f'{self.BASE_URL}/ranklist')
             soup = bs(response.content, features='lxml')
             try:
                 table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
@@ -561,7 +525,6 @@ class Kattis(requests.Session):
                 return self.Result([])
             if not table:
                 return self.Result([])
-            data = []
             headers = [re.findall(r'[A-Za-z]+', h.text)[0] for h in table.find_all('th')]
             for row in table.tbody.find_all('tr'):
                 columns = row.find_all('td')
@@ -593,59 +556,143 @@ class Kattis(requests.Session):
                     'name': name,
                     'username': username,
                     'points': pts,
-                    'country_code': country_code,
-                    'country': COUNTRIES[country_code],
+                    'country_code': country_code if country else None,
+                    'country': country,
                     'subdivision_code': subdivision_code if subdivision else None,
                     'subdivision': subdivision if subdivision else None,
                     'university_code': university_code if university else None,
                     'university': university if university else None
                 })
         else:
-            university_code = guess_id(university, UNIVERSITIES)
-            response = self.get(f'{self.BASE_URL}/universities/{university_code}')
-            soup = bs(response.content, features='lxml')
-            table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
-            if not table:
-                return self.Result([])
-            data = []
-            headers = [re.findall(r'[A-Za-z]+', h.text)[0] for h in table.find_all('th')]
-            for row in table.tbody.find_all('tr'):
-                columns = row.find_all('td')
-                columns_text = [column.text.strip() for column in columns]
-                columns_url = [column.find_all('a') for column in columns]
+            assert country == None or university == None, 'Both of country and university cannot be given at the same time!'
 
-                rank = int(columns_text[0])
-                name = columns_text[1]
-                pts = float(columns_text[-1])
-                name_urls = columns_url[1]
-                username = name_urls[0].get('href').split('/')[-1] # guaranteed to exist
+            if country == university == None:
+                soup = self.get_homepage()
+                try:
+                    table = soup.find_all('table', class_='table2 report_grid-problems_table')[1]
+                except:
+                    return self.Result([])
+                if not table:
+                    return self.Result([])
+                for row in table.tbody.find_all('tr'):
+                    columns = row.find_all('td')
+                    rank, name, pts, *_ = [column.text.strip() for column in columns]
+                    rank = int(rank) if rank.isdigit() else None
+                    pts = float(re.findall(r'[\d\.]+', pts)[0])
+                    findall = columns[1].find_all('a')
 
-                if 'Country' in headers:
-                    country = columns_text[2]
-                    country_urls = columns_url[2]
-                    country_code = country_urls[0].get('href').split('/')[-1] if country_urls else None
-                else:
-                    country = None
+                    new_data = {
+                        'rank': rank,
+                        'name': name,
+                        'points': pts,
+                        'country': None,
+                        'university': None
+                    }
 
-                if 'Subdivision' in headers:
-                    subdivision = columns_text[-2]
-                    subdivision_urls = columns_url[-2]
-                    subdivision_code = subdivision_urls[0].get('href').split('/')[-1] if subdivision_urls else None
-                else:
-                    subdivision = None
+                    for urlsplit, title in [(column.get('href').split('/'), column.get('title')) for column in findall]:
+                        assert sum(x in urlsplit for x in ['users', 'universities', 'countries']) == 1, 'Only one field should be present'
+                        if 'users' in urlsplit:
+                            new_data['username'] = urlsplit[-1] # guaranteed to exist
+                        elif 'universities' in urlsplit:
+                            new_data['university_code'] = urlsplit[-1]
+                            new_data['university'] = title
+                        elif 'countries' in urlsplit:
+                            new_data['country_code'] = urlsplit[-1]
+                            new_data['country'] = title
+                    data.append(new_data)
+            elif country != None:
+                country_code = guess_id(country, COUNTRIES)
+                response = self.get(f'{self.BASE_URL}/countries/{country_code}')
+                soup = bs(response.content, features='lxml')
+                try:
+                    table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
+                except:
+                    return self.Result([])
+                if not table:
+                    return self.Result([])
+                headers = [re.findall(r'[A-Za-z]+', h.text)[0] for h in table.find_all('th')]
+                for row in table.tbody.find_all('tr'):
+                    columns = row.find_all('td')
+                    columns_text = [column.text.strip() for column in columns]
+                    columns_url = [column.find_all('a') for column in columns]
 
-                data.append({
-                    'rank': rank,
-                    'name': name,
-                    'username': username,
-                    'points': pts,
-                    'country_code': country_code if country else None,
-                    'country': country if country else None,
-                    'subdivision_code': subdivision_code if subdivision else None,
-                    'subdivision': subdivision if subdivision else None,
-                    'university_code': university_code,
-                    'university': UNIVERSITIES[university_code]
-                })
+                    rank = int(columns_text[0])
+                    name = columns_text[1]
+                    pts = float(columns_text[-1])
+                    name_urls = columns_url[1]
+                    username = name_urls[0].get('href').split('/')[-1] # guaranteed to exist
+
+                    if 'Subdivision' in headers:
+                        subdivision = columns_text[2]
+                        subdivision_urls = columns_url[2]
+                        subdivision_code = subdivision_urls[0].get('href').split('/')[-1] if subdivision_urls else None
+                    else:
+                        subdivision = None
+
+                    if 'University' in headers:
+                        university = columns_text[-2]
+                        university_urls = columns_url[-2]
+                        university_code = university_urls[0].get('href').split('/')[-1] if university_urls else None
+                    else:
+                        university = None
+
+                    data.append({
+                        'rank': rank,
+                        'name': name,
+                        'username': username,
+                        'points': pts,
+                        'country_code': country_code,
+                        'country': COUNTRIES[country_code],
+                        'subdivision_code': subdivision_code if subdivision else None,
+                        'subdivision': subdivision if subdivision else None,
+                        'university_code': university_code if university else None,
+                        'university': university if university else None
+                    })
+            else:
+                university_code = guess_id(university, UNIVERSITIES)
+                response = self.get(f'{self.BASE_URL}/universities/{university_code}')
+                soup = bs(response.content, features='lxml')
+                table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
+                if not table:
+                    return self.Result([])
+                headers = [re.findall(r'[A-Za-z]+', h.text)[0] for h in table.find_all('th')]
+                for row in table.tbody.find_all('tr'):
+                    columns = row.find_all('td')
+                    columns_text = [column.text.strip() for column in columns]
+                    columns_url = [column.find_all('a') for column in columns]
+
+                    rank = int(columns_text[0])
+                    name = columns_text[1]
+                    pts = float(columns_text[-1])
+                    name_urls = columns_url[1]
+                    username = name_urls[0].get('href').split('/')[-1] # guaranteed to exist
+
+                    if 'Country' in headers:
+                        country = columns_text[2]
+                        country_urls = columns_url[2]
+                        country_code = country_urls[0].get('href').split('/')[-1] if country_urls else None
+                    else:
+                        country = None
+
+                    if 'Subdivision' in headers:
+                        subdivision = columns_text[-2]
+                        subdivision_urls = columns_url[-2]
+                        subdivision_code = subdivision_urls[0].get('href').split('/')[-1] if subdivision_urls else None
+                    else:
+                        subdivision = None
+
+                    data.append({
+                        'rank': rank,
+                        'name': name,
+                        'username': username,
+                        'points': pts,
+                        'country_code': country_code if country else None,
+                        'country': country if country else None,
+                        'subdivision_code': subdivision_code if subdivision else None,
+                        'subdivision': subdivision if subdivision else None,
+                        'university_code': university_code,
+                        'university': UNIVERSITIES[university_code]
+                    })
         return self.Result(data)
 
     @lru_cache
@@ -820,7 +867,7 @@ class NUSKattis(Kattis):
                                 'problems': ','.join(pids)
                             })
                         name, status = truncate(asg.text.strip()).split('\n')
-                        status = status.replace('(', '').replace(')', '')
+                        status = status.replace('(', '').replace(')', '').strip()
                         link = self.get_base_url() + asg.find('a').get('href')
                         aid = link.split('/')[-1]
                         pids = []
