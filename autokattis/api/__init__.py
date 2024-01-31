@@ -184,10 +184,12 @@ class Kattis(requests.Session):
         palette = {'Easy': '#39a137', 'Medium': '#ffbe00', 'Hard': '#ff411a', 'N/A': 'gray'}
         for c in [*palette]:
             if c not in categories: del palette[c]
-        hist = sns.histplot(data=df, x='difficulty', hue='category', multiple='stack', binwidth=0.1, hue_order=hue_order, palette=palette)
+        diff_lo = math.floor(min([d for d in df.difficulty if d], default=0))
+        diff_hi = math.ceil(max([d for d in df.difficulty if d], default=0))
+        hist = sns.histplot(data=df, x='difficulty', hue='category', multiple='stack', bins=[i/10 for i in range(10*diff_lo, 10*diff_hi+1)], hue_order=hue_order, palette=palette)
         hist.set(title=f'Solved Kattis Problems by {self.user} ({df.shape[0]})', xlabel='Difficulty')
         plt.legend(title='Category', loc='upper right', labels=hue_order[::-1])
-        plt.xticks([*range(math.floor(min([d for d in df.difficulty if d], default=0)), math.ceil(max([d for d in df.difficulty if d], default=0))+1)])
+        plt.xticks([*range(diff_lo, diff_hi+1)])
         if filepath != None:
             plt.savefig(filepath)
             print(f'Saved to {filepath}')
