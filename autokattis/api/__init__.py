@@ -875,7 +875,7 @@ class NUSKattis(Kattis):
                         pids = []
                         toggle = True
                     else:
-                        pids.append(asg.text.strip())
+                        pids.append(asg.find('a').get('href').split('/')[-1])
                 if toggle:
                     data.append({
                         'id': aid,
