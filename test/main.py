@@ -8,6 +8,11 @@ ret = kt.problems()                                 # problems you have solved s
 print(df:=ret.to_df())
 df.to_csv('test_problems_default.csv', index=False)
 
+print('=== TEST PROBLEMS V2 (DEFAULT) ===')
+ret = kt.problems_v2()                              # problems you have solved so far
+print(df:=ret.to_df())
+df.to_csv('test_problems_v2_default.csv', index=False)
+
 print('=== TEST PROBLEMS (NO PARTIAL) ===')
 ret = kt.problems(show_partial=False)               # exclude partial submissions
 print(df:=ret.to_df())
@@ -17,6 +22,11 @@ print('=== TEST PROBLEMS (ALL PROBLEMS) ===')
 ret = kt.problems(*[True]*4)                        # literally all problems on Kattis
 print(df:=ret.to_df())
 df.to_csv('test_problems_all.csv', index=False)
+
+print('=== TEST PROBLEMS V2 (ALL PROBLEMS) ===')
+ret = kt.problems_v2(show_non_ac=True)              # literally all problems on Kattis
+print(df:=ret.to_df())
+df.to_csv('test_problems_v2_all.csv', index=False)
 
 print('=== TEST LIST UNSOLVED ===')
 ret = kt.list_unsolved()                            # let's grind!

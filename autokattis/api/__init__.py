@@ -171,6 +171,74 @@ class Kattis(requests.Session):
         return self.Result(sorted(data, key=lambda x: x['id']))
 
     @lru_cache
+    def problems_v2(self, show_non_ac=False):
+        '''
+        Gets all accepted Kattis problems. Note that this is entirely different than the `problems`
+            method due to possible gateway issues from the initial version.
+        Returns a simpler JSON-like structure with these fields:
+            name, id, link
+
+        Default: all solved and partially solved problems.
+        '''
+
+        has_content = True
+        params = {
+            'page': 0,
+            'tab': 'submissions',
+            'status': 'AC'
+        }
+
+        data = []
+        pid_set = set()
+
+        with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
+            futures = []
+            while has_content:
+                has_content = False
+                futures.clear()
+                for _ in range(self.MAX_WORKERS):
+                    futures.append(executor.submit(self.new_get, f'{self.BASE_URL}/users/{self.user}', params=params.copy()))
+                    params['page'] += 1
+                for f in as_completed(futures):
+                    response = f.result()
+                    soup = bs(response.content, features='lxml')
+                    if not soup: continue
+                    table = table = soup.find('div', id='submissions-tab').find('section', class_='strip strip-item-plain').find('table', class_='table2')
+                    try:
+                        table_content = table.tbody.find_all('tr')
+                    except AttributeError:
+                        continue
+                    for row in table_content:
+                        columns = row.find_all('td')
+                        if columns and len(columns) > 2:
+                            has_content = True
+                            pid = columns[2].find_all('a')[-1].get('href').split('/')[-1] # might have two links if it belongs to a contest
+                            if pid not in pid_set:
+                                link = f"{self.BASE_URL}/problems/{pid}"
+                                name = columns[2].text.split('/')[-1].strip()
+                                pid_set.add(pid)
+                                data.append({
+                                    'name': name,
+                                    'id': pid,
+                                    'link': link
+                                })
+
+        if show_non_ac:
+            # we can just use the latest soup and take the dropdown
+            for option in soup.find_all('option')[1:]:
+                pid = option.get('value').strip()
+                if not pid: break
+                if pid not in pid_set:
+                    pid_set.add(pid)
+                    data.append({
+                        'name': option.text.strip(),
+                        'id': pid,
+                        'link': f"{self.BASE_URL}/problems/{pid}"
+                    })
+
+        return self.Result(sorted(data, key=lambda x: x['id']))
+
+    @lru_cache
     def plot_problems(self, filepath=None, show_solved=True, show_partial=True, show_tried=False, show_untried=False):
         '''
         Plots the histogram of Kattis problems to a specified filepath.

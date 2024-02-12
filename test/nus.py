@@ -3,37 +3,15 @@ from env import USER, PASSWORD
 
 kt = NUSKattis(USER, PASSWORD)
 
-print('=== TEST PROBLEMS (DEFAULT) ===')
-ret = kt.problems()                                 # problems you have solved so far
+print('=== TEST PROBLEMS V2 (DEFAULT) ===')
+ret = kt.problems_v2()                              # problems you have solved so far
 print(df:=ret.to_df())
-df.to_csv('test_nus_problems_default.csv', index=False)
+df.to_csv('test_nus_problems_v2_default.csv', index=False)
 
-print('=== TEST PROBLEMS (NO PARTIAL) ===')
-ret = kt.problems(show_partial=False)               # exclude partial submissions
+print('=== TEST PROBLEMS V2 (ALL PROBLEMS) ===')
+ret = kt.problems_v2(show_non_ac=True)              # literally all problems on Kattis
 print(df:=ret.to_df())
-df.to_csv('test_nus_problems_no_partial.csv', index=False)
-
-print('=== TEST PROBLEMS (ALL PROBLEMS) ===')
-ret = kt.problems(*[True]*4)                        # literally all problems on Kattis
-print(df:=ret.to_df())
-df.to_csv('test_nus_problems_all.csv', index=False)
-
-print('=== TEST LIST UNSOLVED ===')
-ret = kt.list_unsolved()                            # let's grind!
-print(df:=ret.to_df())
-df.to_csv('test_nus_list_unsolved.csv', index=False)
-
-print('=== TEST PLOT PROBLEMS (DEFAULT) ===')
-ret = kt.plot_problems()                            # plot the points distribution
-print('Done!')
-
-print('=== TEST PLOT PROBLEMS (TO FILEPATH) ===')
-ret = kt.plot_problems(filepath='nus_plot.png')     # save to a filepath
-print('Done!')
-
-print('=== TEST PLOT PROBLEMS (NO PARTIAL) ===')
-ret = kt.plot_problems(show_partial=False)          # plot fully solved submissions
-print('Done!')
+df.to_csv('test_nus_problems_v2_all.csv', index=False)
 
 print('=== TEST PROBLEM (SINGLE) ===')
 ret = kt.problem('2048')                            # fetch info about a problem
