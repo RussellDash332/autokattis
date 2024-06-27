@@ -13,16 +13,6 @@ ret = kt.problems_v2(show_non_ac=True)              # literally all problems on 
 print(df:=ret.to_df())
 df.to_csv('test_nus_problems_v2_all.csv', index=False)
 
-print('=== TEST PROBLEM (SINGLE) ===')
-ret = kt.problem('2048')                            # fetch info about a problem
-print(df:=ret.to_df())
-df.to_csv('test_nus_problem_single.csv', index=False)
-
-print('=== TEST PROBLEM (MULTIPLE) ===')
-ret = kt.problem('2048', 'abinitio', 'dasort')      # fetch multiple in one
-print(df:=ret.to_df())
-df.to_csv('test_nus_problem_multiple.csv', index=False)
-
 print('=== TEST PROBLEM AUTHORS ===')
 ret = kt.problem_authors()                          # list down all problem authors
 print(df:=ret.to_df())

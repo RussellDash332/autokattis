@@ -127,7 +127,10 @@ class Kattis(requests.Session):
                     response = f.result()
                     soup = bs(response.content, features='lxml')
                     if not soup: continue
-                    table = soup.find('section', class_='strip strip-item-plain').find('table', class_='table2')
+                    try:
+                        table = soup.find('section', class_='strip strip-item-plain').find('table', class_='table2')
+                    except AttributeError:
+                        continue # end of page (no data found)
                     try:
                         table_content = table.tbody.find_all('tr')
                     except AttributeError:
@@ -212,10 +215,19 @@ class Kattis(requests.Session):
                         columns = row.find_all('td')
                         if columns and len(columns) > 2:
                             has_content = True
-                            pid = columns[2].find_all('a')[-1].get('href').split('/')[-1] # might have two links if it belongs to a contest
+                            # column 0: plagiarism
+                            # column 1: time of submission
+                            # column 2: group/team
+                            # column 3: {problem_name} or {contest_name}/{problem_name}
+                            # column 4: status
+                            # column 5: runtime
+                            # column 6: language
+                            # column 7: testcases
+                            # column 8: button to view details
+                            pid = columns[3].find_all('a')[-1].get('href').split('/')[-1].strip() # might have two links if it belongs to a contest
                             if pid not in pid_set:
                                 link = f"{self.BASE_URL}/problems/{pid}"
-                                name = columns[2].text.split('/')[-1].strip()
+                                name = columns[3].text.split('/')[-1].strip()
                                 pid_set.add(pid)
                                 data.append({
                                     'name': name,
@@ -515,14 +527,23 @@ class Kattis(requests.Session):
                         columns = row.find_all('td')
                         columns_text = [column.text.strip() for column in columns if column.text.strip()]
                         if columns_text:
+                            # column 0: plagiarism
+                            # column 1: time of submission
+                            # column 2: group/team
+                            # column 3: {problem_name} or {contest_name}/{problem_name}
+                            # column 4: status
+                            # column 5: runtime
+                            # column 6: language
+                            # column 7: testcases
+                            # column 8: button to view details
                             has_content = True
-                            link = f"{self.BASE_URL}/submissions/{columns[-1].find('a').get('href').split('/')[-1]}"
-                            ts = columns_text[0]
-                            pid = columns[2].find_all('a')[-1].get('href').split('/')[-1] # use find_all as a workaround for contest links
-                            name = columns_text[1].split(' / ')[-1]
-                            runtime = ' '.join(columns_text[3].split()[:-1]) # not converting to float because some TLE solutions (with '>') can also be AC
-                            language = columns_text[4]
-                            tc_pass, tc_full = map(int, columns_text[5].split('/'))
+                            link = f"{self.BASE_URL}/submissions/{columns[8].find('a').get('href').split('/')[-1]}"
+                            ts = columns[1].text.strip()
+                            pid = columns[3].find_all('a')[-1].get('href').split('/')[-1].strip() # might have two links if it belongs to a contest
+                            name = columns[3].text.split(' / ')[-1].strip()
+                            runtime = ' '.join(columns[5].text.split()[:-1]) # not converting to float because some TLE solutions (with '>') can also be AC
+                            language = columns[6].text.strip()
+                            tc_pass, tc_full = map(int, columns[7].text.split('/'))
                             new_data = {
                                 'name': name,
                                 'timestamp': ts,
@@ -532,7 +553,7 @@ class Kattis(requests.Session):
                                 'test_case_full': tc_full,
                                 'link': link
                             }
-                            pts_regex = re.findall(r'[\d\.]+', columns_text[2])
+                            pts_regex = re.findall(r'[\d\.]+', columns[4].text)
                             if pts_regex:
                                 new_data['score'] = float(pts_regex[0])
                             if pid not in data:
@@ -601,7 +622,7 @@ class Kattis(requests.Session):
                 columns_text = [column.text.strip() for column in columns]
                 columns_url = [column.find_all('a') for column in columns]
 
-                rank = int(columns_text[0])
+                rank = int(columns_text[0]) if columns_text[0].isdigit() else None
                 name = columns_text[1]
                 pts = float(columns_text[-1])
                 name_urls = columns_url[1]
