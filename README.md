@@ -182,4 +182,4 @@ The `test` directory is provided within this repository. You are free to test `a
 
 ## Contributing
 
-asdf
+Feel free to suggest anything or add on some implementation by simply creating a pull request!
