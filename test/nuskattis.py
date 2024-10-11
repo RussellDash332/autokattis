@@ -20,9 +20,9 @@ test('nus_stats_invalid',                   kt.stats,           {'languages': ('
 
 test('nus_courses',                         kt.courses,         {})
 
-test('nus_offerings_valid_1',               kt.courses,         {'course_id': 'CS2040'})
-test('nus_offerings_valid_2',               kt.courses,         {'course_id': 'CS3233'})
-test('nus_offerings_invalid',               kt.courses,         {'course_id': 'idk'})
+test('nus_offerings_valid_1',               kt.offerings,       {'course_id': 'CS2040'})
+test('nus_offerings_valid_2',               kt.offerings,       {'course_id': 'CS3233'})
+test('nus_offerings_invalid',               kt.offerings,       {'course_id': 'idk'})
 
-test('nus_assignments_courseid_guessed',    kt.assignments,     {'offering_id': 'CS3233_S2_AY2223'})
+test('nus_assignments_courseid_guessed',    kt.assignments,     {'offering_id': 'CS2040_S1_AY2425'})
 test('nus_assignments_courseid_given',      kt.assignments,     {'offering_id': 'CS3233_S2_AY2223', 'course_id': 'CS3233'})

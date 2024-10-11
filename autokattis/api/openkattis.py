@@ -211,11 +211,12 @@ class OpenKattis(ABCKattis):
         categories = set(df.category)
 
         hue_order = [enum_to_title(c) for c in [DifficultyColor.N_A, DifficultyColor.HARD, DifficultyColor.MEDIUM, DifficultyColor.EASY] if enum_to_title(c) in categories]
-        palette = {enum_to_title(c):c.value for c in [DifficultyColor.EASY, DifficultyColor.MEDIUM, DifficultyColor.HARD, DifficultyColor.NA] if c in categories}
+        palette = {enum_to_title(c):c.value for c in [DifficultyColor.EASY, DifficultyColor.MEDIUM, DifficultyColor.HARD, DifficultyColor.N_A] if enum_to_title(c) in categories}
 
         diff_lo = math.floor(min([d for d in df.difficulty if d], default=0))
         diff_hi = math.ceil(max([d for d in df.difficulty if d], default=0))
 
+        plt.clf()
         hist = sns.histplot(data=df, x='difficulty', hue='category', multiple='stack', bins=[i/10 for i in range(10*diff_lo, 10*diff_hi+1)], hue_order=hue_order, palette=palette)
         hist.set(title=f'Solved Kattis Problems by {self.get_username()} ({df.shape[0]})', xlabel='Difficulty')
         plt.legend(title='Category', loc='upper right', labels=hue_order[::-1])
@@ -505,7 +506,7 @@ class OpenKattis(ABCKattis):
             params = {
                 'page': 0,
                 'status': 'AC',
-                'language': language
+                'language': self.get_database().get_languages().get(language)
             }
             data = {}
             with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:

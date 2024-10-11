@@ -11,7 +11,7 @@ class DatabaseManager:
             name = option.text.strip()
             if val and name: self.LANGUAGES[val] = name
         for val, name in [*self.LANGUAGES.items()]:
-            self.LANGUAGES[name] = val
+            self.LANGUAGES[name] = self.LANGUAGES[val] = val
         print('[database] Listed all available languages!', flush=True)
 
         self.COUNTRIES = {}

@@ -354,7 +354,7 @@ class NUSKattis(ABCKattis):
             params = {
                 'page': 0,
                 'status': 'AC',
-                'language': language
+                'language': self.get_database().get_languages().get(language)
             }
             data = {}
             with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:
@@ -467,7 +467,7 @@ class NUSKattis(ABCKattis):
                 name, end_date = [truncate_spaces(column.text.strip()) for column in columns]
                 link, _ = [column.find('a') for column in columns]
                 data.append({
-                    'name': name,
+                    'name': name.replace('\n', ''),
                     'end_date': end_date.split()[1][:-1],
                     'link': self.get_base_url() + link.get('href')
                 })

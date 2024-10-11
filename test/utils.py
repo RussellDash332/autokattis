@@ -20,8 +20,9 @@ def test(title, fn, kwargs, csv=True):
     start = time.perf_counter()
     try:
         ret = fn(**kwargs)
-        print(df:=ret.to_df())
-        if csv: df.to_csv(f'{title}.csv', index=False)
+        if ret != None:
+            print(df:=ret.to_df())
+            if csv: df.to_csv(f'{title}.csv', index=False)
         print(f'Time taken: {round(time.perf_counter()-start, 4)}s')
         print(f'[{bcolors.OKGREEN}OK{bcolors.ENDC}] {fn.__qualname__}:{title}')
     except Exception as e:

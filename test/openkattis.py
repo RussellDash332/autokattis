@@ -5,10 +5,10 @@ from utils import test
 kt = Kattis(USER, PASSWORD)
 kt = OpenKattis(USER, PASSWORD)
 
-test('open_problems_solved_ldm',            kt.problems,            {})
-test('open_problems_solved_fdm',            kt.problems,            {'low_detail_mode': False})
-test('open_problems_all_ldm',               kt.problems,            {'show_tried': True, 'show_untried': True})
-test('open_problems_all_fdm',               kt.problems,            {'show_tried': True, 'show_untried': True, 'low_detail_mode': False})
+test('open_problems_solved_fdm',            kt.problems,            {})
+test('open_problems_solved_ldm',            kt.problems,            {'low_detail_mode': True})
+test('open_problems_all_fdm',               kt.problems,            {'show_tried': True, 'show_untried': True})
+test('open_problems_all_ldm',               kt.problems,            {'show_tried': True, 'show_untried': True, 'low_detail_mode': True})
 
 test('open_plot_problems_solved_nofile',    kt.plot_problems,       {})
 test('open_plot_problems_solved_file',      kt.plot_problems,       {'filepath': 'plot1.png'})
