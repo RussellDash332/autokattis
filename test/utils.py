@@ -24,6 +24,7 @@ def test(title, fn, kwargs, csv=True):
         if csv: df.to_csv(f'{title}.csv', index=False)
         print(f'Time taken: {round(time.perf_counter()-start, 4)}s')
         print(f'[{bcolors.OKGREEN}OK{bcolors.ENDC}] {fn.__qualname__}:{title}')
-    except:
+    except Exception as e:
+        print(f'{type(e).__name__}: {e}')
         print(f'Time taken: {round(time.perf_counter()-start, 4)}s')
         print(f'[{bcolors.FAIL}FAIL{bcolors.ENDC}] {fn.__qualname__}:{title}')
