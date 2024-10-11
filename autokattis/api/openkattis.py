@@ -227,7 +227,7 @@ class OpenKattis(ABCKattis):
 
     @list_to_tuple
     @lru_cache
-    def problem(self, problem_ids, download_files=False):
+    def problem(self, problem_ids, download_files=False, *bc_args):
         '''
         Obtain information about one or more specific problems. The problem_ids parameter can be a string of a single problem ID, or a sequence of problem IDs.
 
@@ -461,7 +461,7 @@ class OpenKattis(ABCKattis):
 
     @list_to_tuple
     @lru_cache
-    def stats(self, languages=None):
+    def stats(self, languages=None, *bc_args):
         '''
         Collects the statistics of your accepted (AC) submissions based on the programming language(s) used. The languages parameter can be a string of a single language, or a sequence of languages.
         
@@ -978,7 +978,7 @@ class OpenKattis(ABCKattis):
         return self.Result(data)
 
     @lru_cache
-    def ranklist(self):
+    def ranklist(self, *bc_args):
         '''
         Retrieves the ranklist of users near your position.
 
