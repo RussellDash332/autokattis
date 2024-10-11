@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from . import Kattis
+from . import ABCKattis
 from .enums import (
     ChallengeRanklistColumn, CountryRanklistColumn, DefaultRanklistColumn, DifficultyColor,
     ProblemAuthorsColumn, ProblemMetadataField, ProblemSourcesColumn, ProblemStatisticsColumn,
@@ -22,31 +22,30 @@ from .utils import (
     list_to_tuple, replace_double_dash
 )
 
-class OpenKattis(Kattis):
-    def __init__(self, username, password=None, method='email'):
+class OpenKattis(ABCKattis):
+    def __init__(self, username, password=None):
         '''
         A local Open Kattis session.
         Takes in a user (email or username).
 
-        - If the password is not given, you will be prompted for one.
-        - The default login method is by "email". Other modes include "google", "linkedin", and "github".
+        If the password is not given, you will be prompted for one.
         '''
 
-        super().__init__('https://open.kattis.com', username, password, method)
+        super().__init__('https://open.kattis.com', username, password)
 
     @lru_cache
-    def problems(self, show_solved=True, show_partial=True, show_tried=False, show_untried=False, low_detail_mode=True):
+    def problems(self, show_solved=True, show_partial=True, show_tried=False, show_untried=False, low_detail_mode=False):
         '''
         Gets the list of Open Kattis problems.
 
         Parameters:
-        - low_detail_mode: True if you want only need the problem IDs and the links. Otherwise, it will contain many other details and thus will take more time.
+        - low_detail_mode: True if you want only need the problem IDs and the links. Otherwise, it will contain many other details and thus will take more time. By default, this is set to False.
 
         The below parameters only matter if low_detail_mode is set to False:
-        - show_solved: True if you want to include fully solved problems, False otherwise.
-        - show_partial: True if you want to include partially solved problems, False otherwise.
-        - show_tried: True if you want to include unsolved problems that you have attempted, False otherwise.
-        - show_untried: True if you want to include unsolved problems that you have never attempted, False otherwise.
+        - show_solved: True if you want to include fully solved problems, False otherwise. By default, this is set to True.
+        - show_partial: True if you want to include partially solved problems, False otherwise. By default, this is set to True.
+        - show_tried: True if you want to include unsolved problems that you have attempted, False otherwise. By default, this is set to False.
+        - show_untried: True if you want to include unsolved problems that you have never attempted, False otherwise. By default, this is set to False.
 
         Example for low detail mode:
         [
@@ -635,7 +634,7 @@ class OpenKattis(Kattis):
         headers = get_table_headers(table)
         for row in get_table_rows(table):
             columns = row.find_all('td')
-            if len(columns) == 1: continue # skip the ellipsis if any
+            if len(columns) == 1: break # stop at ellipsis if any
 
             columns_text = [column.text.strip() for column in columns]
             columns_url = [column.find_all('a') for column in columns]
@@ -728,7 +727,7 @@ class OpenKattis(Kattis):
             headers = get_table_headers(table)
             for row in get_table_rows(table):
                 columns = row.find_all('td')
-                if len(columns) == 1: continue # skip the ellipsis if any
+                if len(columns) == 1: break # stop at ellipsis if any
 
                 columns_text = [column.text.strip() for column in columns]
                 columns_url = [column.find_all('a') for column in columns]
@@ -751,7 +750,7 @@ class OpenKattis(Kattis):
             headers = get_table_headers(table)
             for row in get_table_rows(table):
                 columns = row.find_all('td')
-                if len(columns) == 1: continue # skip the ellipsis if any
+                if len(columns) == 1: break # stop at ellipsis if any
 
                 columns_text = [column.text.strip() for column in columns]
                 columns_url = [column.find_all('a') for column in columns]
@@ -854,7 +853,7 @@ class OpenKattis(Kattis):
             headers = get_table_headers(table)
             for row in get_table_rows(table):
                 columns = row.find_all('td')
-                if len(columns) == 1: continue # skip the ellipsis if any
+                if len(columns) == 1: break # stop at ellipsis if any
 
                 columns_text = [column.text.strip() for column in columns]
                 columns_url = [column.find_all('a') for column in columns]
@@ -879,7 +878,7 @@ class OpenKattis(Kattis):
             headers = get_table_headers(table)
             for row in get_table_rows(table):
                 columns = row.find_all('td')
-                if len(columns) == 1: continue # skip the ellipsis if any
+                if len(columns) == 1: break # stop at ellipsis if any
 
                 columns_text = [column.text.strip() for column in columns]
                 columns_url = [column.find_all('a') for column in columns]
@@ -951,7 +950,7 @@ class OpenKattis(Kattis):
         headers = get_table_headers(table)
         for row in get_table_rows(table):
             columns = row.find_all('td')
-            if len(columns) == 1: continue # skip the ellipsis if any
+            if len(columns) == 1: break # stop at ellipsis if any
 
             columns_text = [column.text.strip() for column in columns]
             columns_url = [column.find_all('a') for column in columns]

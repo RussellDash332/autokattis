@@ -1,7 +1,8 @@
-from autokattis import OpenKattis
+from autokattis import Kattis, OpenKattis
 from env import USER, PASSWORD
 from utils import test
 
+kt = Kattis(USER, PASSWORD)
 kt = OpenKattis(USER, PASSWORD)
 
 test('open_problems_solved_ldm',            kt.problems,            {})

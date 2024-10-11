@@ -5,7 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 
 from bs4 import BeautifulSoup as bs
-from . import Kattis
+
+from . import ABCKattis
 from .enums import (
     ProblemMetadataField, ProblemStatisticsColumn, SolvedProblemsColumn, SubmissionsColumn
 )
@@ -14,17 +15,16 @@ from .utils import (
     remove_brackets, replace_double_dash, truncate_spaces
 )
 
-class NUSKattis(Kattis):
-    def __init__(self, username, password=None, method='email'):
+class NUSKattis(ABCKattis):
+    def __init__(self, username, password=None):
         '''
         A local NUS Kattis session.
         Takes in a user (email or username).
 
-        - If the password is not given, you will be prompted for one.
-        - The default login method is by "email". Other modes include "google", "linkedin", and "github".
+        If the password is not given, you will be prompted for one.
         '''
 
-        super().__init__('https://nus.kattis.com', username, password, method)
+        super().__init__('https://nus.kattis.com', username, password)
 
     @lru_cache
     def problems(self, show_solved=True):

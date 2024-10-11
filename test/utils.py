@@ -1,3 +1,5 @@
+import time
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -15,10 +17,13 @@ def test(title, fn, kwargs, csv=True):
     TEST_NAMES.add(title)
 
     print(f'[{bcolors.OKBLUE}RUN{bcolors.ENDC}] {fn.__qualname__}:{title}')
+    start = time.perf_counter()
     try:
         ret = fn(**kwargs)
         print(df:=ret.to_df())
         if csv: df.to_csv(f'{title}.csv', index=False)
+        print(f'Time taken: {round(time.perf_counter()-start, 4)}s')
         print(f'[{bcolors.OKGREEN}OK{bcolors.ENDC}] {fn.__qualname__}:{title}')
     except:
+        print(f'Time taken: {round(time.perf_counter()-start, 4)}s')
         print(f'[{bcolors.FAIL}FAIL{bcolors.ENDC}] {fn.__qualname__}:{title}')

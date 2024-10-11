@@ -8,20 +8,20 @@ from .databasemanager import DatabaseManager
 from .loginmanager import LoginManager
 from .utils import suppress_warnings
 
-class Kattis(ABC):
+class ABCKattis(ABC):
     class Result(list):
         def __init__(self, data):
             super().__init__(data)
             self.to_df = lambda: pd.DataFrame(data)
 
-    def __init__(self, base_url, username, password, method):
+    def __init__(self, base_url, username, password):
         suppress_warnings()
         self.session = requests.Session()
         self.session.__init__()
         self.base_url = base_url
         self.homepage = ''
         self.max_workers = 6
-        self.username = LoginManager(self).login(username, password, method)
+        self.username = LoginManager(self).login(username, password)
         self.db = DatabaseManager(self)
 
     def new_get(self, *args, **kwargs):
@@ -40,6 +40,9 @@ class Kattis(ABC):
 
     def set_homepage(self, hp):
         self.homepage = hp
+
+    def get_session(self):
+        return self.session
 
     def get_max_workers(self):
         return self.max_workers
@@ -62,9 +65,9 @@ class Kattis(ABC):
         pass
 
     @abstractmethod
-    def problem(self, problem_ids, download_files):
+    def problem(self, problem_ids, download_files, *args):
         pass
 
     @abstractmethod
-    def stats(self, languages):
+    def stats(self, languages, *args):
         pass
