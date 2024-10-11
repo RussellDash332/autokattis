@@ -1,4 +1,5 @@
-from enum import Enum, IntEnum, StrEnum
+from enum import Enum, IntEnum
+# StrEnum is not supported for <3.11
 
 class DifficultyColor(Enum):
     EASY = '#39a137'
@@ -29,7 +30,7 @@ class ProblemsColumn(IntEnum):
     AVAILABLE_LANGUAGES = 8
     STATISTICS = 9
 
-class ProblemMetadataField(StrEnum):
+class ProblemMetadataField():
     CPU_TIME_LIMIT = 'CPU Time limit'
     MEMORY_LIMIT = 'Memory limit'
     DIFFICULTY = 'Difficulty'
@@ -52,7 +53,7 @@ class SolvedProblemsColumn(IntEnum):
     DIFFICULTY = 4
     STATISTICS = 5
 
-class RanklistField(StrEnum):
+class RanklistField():
     SUBDIVISION = 'Subdivision'
     UNIVERSITY = 'University'
     COUNTRY = 'Country'
