@@ -5,7 +5,7 @@ with open('README.md') as readme_file:
 
 setup_args = dict(
     name='autokattis',
-    version='2.0',
+    version='2.0.1',
     description='Updated Kattis API wrapper',
     long_description_content_type="text/markdown",
     long_description=README,

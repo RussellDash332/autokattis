@@ -26,11 +26,11 @@ class ABCKattis(ABC):
 
     def new_get(self, *args, **kwargs):
         try:    return self.session.get(*args, **kwargs)
-        except: return self.session.new_get(*args, **kwargs)
+        except: return self.new_get(*args, **kwargs)
 
     def new_post(self, *args, **kwargs):
         try:    return self.session.post(*args, **kwargs)
-        except: return self.session.new_post(*args, **kwargs)
+        except: return self.new_post(*args, **kwargs)
 
     def get_base_url(self):
         return self.base_url
