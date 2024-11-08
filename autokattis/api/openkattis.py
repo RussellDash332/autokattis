@@ -349,7 +349,7 @@ class OpenKattis(ABCKattis):
             # statistics
             data['statistics'] = {}
             soup = self.get_soup_response(f'{self.get_base_url()}/problems/{problem_id}/statistics')
-            category_map = {option.get('value'):[option.text, option.get('data-title')] for option in soup.find_all('option')}
+            category_map = {option.get('value')[1:]:[option.text, option.get('data-title')] for option in soup.find_all('option')}
             for section in soup.find_all('section', class_='strip strip-item-plain'):
                 table = section.find('table')
                 section_id = section.get('id')

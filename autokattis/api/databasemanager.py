@@ -15,16 +15,22 @@ class DatabaseManager:
         print('[database] Listed all available languages!', flush=True)
 
         self.COUNTRIES = {}
-        self.UNIVERSITIES = {}
-        soup = user.get_soup_response(f'{user.get_base_url()}/ranklist')
+        soup = user.get_soup_response(f'{user.get_base_url()}/ranklist/countries')
         for script in soup.find_all('script'):
-            for name, code in re.findall('text: "([^"]*)",url: "([^"]*)"', script.text):
+            for name, code in re.findall('"text": "([^"]*)","url": "([^"]*)"', script.text):
                 _, cat, code = code.replace('\\', '').split('/')
                 name = name.encode().decode('unicode_escape')
                 if cat == 'countries': self.COUNTRIES[code] = name
-                elif cat == 'universities': self.UNIVERSITIES[code] = name
-        print('[database] Listed all available countries!', flush=True)
-        print('[database] Listed all available universities!', flush=True)
+        print(f'[database] Listed all {len(self.COUNTRIES)} available countries!', flush=True)
+
+        self.UNIVERSITIES = {}
+        soup = user.get_soup_response(f'{user.get_base_url()}/ranklist/universities')
+        for script in soup.find_all('script'):
+            for name, code in re.findall('"text": "([^"]*)","url": "([^"]*)"', script.text):
+                _, cat, code = code.replace('\\', '').split('/')
+                name = name.encode().decode('unicode_escape')
+                if cat == 'universities': self.UNIVERSITIES[code] = name
+        print(f'[database] Listed all {len(self.UNIVERSITIES)} available universities!', flush=True)
 
     def get_languages(self):
         return self.LANGUAGES

@@ -254,7 +254,7 @@ class NUSKattis(ABCKattis):
             # if there are multiple offerings, just take the first one because they share the same leaderboard
             data['statistics'] = {}
             soup = self.get_soup_response(f'{dest_urls[0]}/statistics')
-            category_map = {option.get('value'):[option.text, option.get('data-title')] for option in soup.find_all('option')}
+            category_map = {option.get('value')[1:]:[option.text, option.get('data-title')] for option in soup.find_all('option')}
             for section in soup.find_all('section', class_='strip strip-item-plain'):
                 table = section.find('table')
                 section_id = section.get('id')
