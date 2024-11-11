@@ -318,7 +318,11 @@ class OpenKattis(ABCKattis):
                     elif div_text[0] == ProblemMetadataField.MEMORY_LIMIT:
                         memory = div_text[-1].strip()
                     elif len(div_text) > 1 and div_text[1] == ProblemMetadataField.DIFFICULTY:
-                        difficulty = float(div_text[0]) if div_text else None
+                        difficulty = float((re.findall('[\d\.]+', columns[ProblemsColumn.DIFFICULTY_CATEGORY].text) or [None])[-1])
+                                    # [0] instead of [-1] if we want to take min instead of max
+                                    # for example:
+                                    # - difficulty 9.1-9.6 -> [9.1, 9.6]
+                                    # - difficulty 5.0 -> [5.0]
                         category = div_text[2].strip() if len(div_text) > 2 else 'N/A'
                     elif div_text[0] == ProblemMetadataField.SOURCE_LICENSE:
                         text_links = [(s.text.strip(), [a.get('href').strip('/') for a in s.find_all('a')]) for s in d.find_all('span') if s.text.strip()]
