@@ -42,13 +42,11 @@ class OpenKattis(ABCKattis):
         Parameters:
         - low_detail_mode: True if you want only need the problem IDs and the links. Otherwise, it will contain many other details and thus will take more time. By default, this is set to False.
 
-        The below parameters only matter if low_detail_mode is set to False:
+        The below parameters acts as filters and only matter if low_detail_mode is set to False:
         - show_solved: True if you want to include fully solved problems, False otherwise. By default, this is set to True.
         - show_partial: True if you want to include partially solved problems, False otherwise. By default, this is set to True.
         - show_tried: True if you want to include unsolved problems that you have attempted, False otherwise. By default, this is set to False.
         - show_untried: True if you want to include unsolved problems that you have never attempted, False otherwise. By default, this is set to False.
-
-        Note that if you already have a lot of submissions, the low detail mode might run slower for you.
 
         Example for low detail mode:
         [
@@ -99,57 +97,16 @@ class OpenKattis(ABCKattis):
         has_content, data = True, []
 
         if low_detail_mode:
-            pid_set = set()
-
-            if show_solved:
-                params = {
-                    'page': 0,
-                    'tab': 'submissions',
-                    'status': 'AC'
-                }
-
-                with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:
-                    futures = []
-                    while has_content:
-                        has_content = False
-                        futures.clear()
-                        for _ in range(self.get_max_workers()):
-                            futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/users/{self.get_username()}', params=params.copy()))
-                            params['page'] += 1
-                        for f in as_completed(futures):
-                            response = f.result()
-                            soup = bs(response.content, features='lxml')
-                            if not soup: continue
-
-                            table = table = soup.find('div', id='submissions-tab').find('section', class_='strip strip-item-plain').find('table', class_='table2')
-                            try:                    table_content = get_table_rows(table)
-                            except AttributeError:  continue
-
-                            for row in table_content:
-                                columns = row.find_all('td')
-                                if columns and len(columns) >= SubmissionsColumn.CONTEST_PROBLEM_NAME:
-                                    has_content = True
-                                    pid = get_last_path(columns[SubmissionsColumn.CONTEST_PROBLEM_NAME].find_all('a')[-1].get('href')) # might have two links if it belongs to a contest, so we take the latter
-                                    if pid not in pid_set:
-                                        pid_set.add(pid)
-                                        data.append({
-                                            'name': get_last_path(columns[SubmissionsColumn.CONTEST_PROBLEM_NAME].text),
-                                            'id': pid,
-                                            'link': f"{self.get_base_url()}/problems/{pid}"
-                                        })
-            else:
-                # we can just take from the given dropdown list
-                soup = self.get_soup_response(f'{self.get_base_url()}/users/{self.get_username()}')
-                for option in soup.find_all('option')[1:]:
-                    pid = option.get('value').strip()
-                    if not pid: break
-                    if pid not in pid_set:
-                        pid_set.add(pid)
-                        data.append({
-                            'name': option.text.strip(),
-                            'id': pid,
-                            'link': f"{self.get_base_url()}/problems/{pid}"
-                        })
+            # we can just take from the given dropdown list
+            soup = self.get_soup_response(f'{self.get_base_url()}/users/{self.get_username()}?tab=submissions')
+            for option in soup.find_all('option')[4:]:
+                pid = option.get('value').strip()
+                if not pid: break
+                data.append({
+                    'name': option.text.strip(),
+                    'id': pid,
+                    'link': f"{self.get_base_url()}/problems/{pid}"
+                })
         else:
             params = {
                 'page': 1,
@@ -444,10 +401,20 @@ class OpenKattis(ABCKattis):
                 "id": "zyxab",
                 "runtime": 0.01,
                 "length": 10,
-                "achievement": "Within 100% of shortest",
+                "achievement": "Fastest Solution, Within 100% of shortest",
                 "difficulty": 2.6,
                 "category": "Easy",
                 "link": "https://open.kattis.com/problems/zyxab"
+            },
+            {
+                "name": "Zyxac",
+                "id": "zyxac",
+                "runtime": 0.02,
+                "length": 101,
+                "achievement": "Fastest Solution",
+                "difficulty": 8.6,
+                "category": "Hard",
+                "link": "https://open.kattis.com/problems/zyxac"
             },
             ...
         ]
@@ -473,7 +440,7 @@ class OpenKattis(ABCKattis):
                             if columns[SolvedProblemsColumn.NAME].find('a') == None: continue
                             has_content = True
                             link = f"{self.get_base_url()}{columns[SolvedProblemsColumn.NAME].find('a').get('href')}"
-                            achievement = ', '.join(sorted(set(sp.text.strip() for sp in columns[SolvedProblemsColumn.ACHIEVEMENTS].find_all('span') if len(sp.find_all('span')) == 1)))
+                            achievement = ', '.join(sorted(set(sp.text.strip() for sp in columns[SolvedProblemsColumn.ACHIEVEMENTS].find_all('span') if not sp.find_all('span') and sp.text.strip())))
                             if not achievement: continue
                             try:        difficulty = float(re.findall('[\d\.]+', columns[SolvedProblemsColumn.DIFFICULTY].text)[-1])
                             except:     difficulty = None
@@ -1079,6 +1046,7 @@ class OpenKattis(ABCKattis):
             {
                 "name": "Lorem Ipsum",
                 "problems": 6,
+                "num_solved": 2,
                 "avg_difficulty": 1.3,
                 "avg_category": "Easy",
                 "link": "https://open.kattis.com/problem-authors/Lorem%20Ipsum"
@@ -1086,6 +1054,7 @@ class OpenKattis(ABCKattis):
             {
                 "name": "Jack Julius Jill",
                 "problems": 12,
+                "num_solved": 10,
                 "avg_difficulty": 5.3,
                 "avg_category": "Medium",
                 "link": "https://open.kattis.com/problem-authors/Jack%20Julius%Jill"
@@ -1112,6 +1081,7 @@ class OpenKattis(ABCKattis):
             data.append({
                 'name': columns_text[ProblemAuthorsColumn.AUTHOR].strip(),
                 'problems': int(columns_text[ProblemAuthorsColumn.PROBLEMS]),
+                'num_solved': int(columns_text[ProblemAuthorsColumn.SOLVED]),
                 'avg_difficulty': difficulty,
                 'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemAuthorsColumn.AVG_DIFF]) or ['N/A'])[0],
                 'link': f'{self.get_base_url()}{columns_url[ProblemAuthorsColumn.AUTHOR][0].get("href")}'
@@ -1128,6 +1098,7 @@ class OpenKattis(ABCKattis):
             {
                 "name": "Lorem Ipsum Contest",
                 "problems": 6,
+                "num_solved": 2,
                 "avg_difficulty": 1.3,
                 "avg_category": "Easy",
                 "link": "https://open.kattis.com/problem-sources/Lorem%20Ipsum%20Contest"
@@ -1135,6 +1106,7 @@ class OpenKattis(ABCKattis):
             {
                 "name": "Jack Julius Jill Cup",
                 "problems": 12,
+                "num_solved": 10,
                 "avg_difficulty": 5.3,
                 "avg_category": "Medium",
                 "link": "https://open.kattis.com/problem-authors/Jack%20Julius%Jill%20Cup"
@@ -1161,6 +1133,7 @@ class OpenKattis(ABCKattis):
             data.append({
                 'name': columns_text[ProblemSourcesColumn.SOURCE].strip(),
                 'problems': int(columns_text[ProblemSourcesColumn.PROBLEMS]),
+                'num_solved': int(columns_text[ProblemSourcesColumn.SOLVED]),
                 'avg_difficulty': difficulty,
                 'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemSourcesColumn.AVG_DIFF]) or ['N/A'])[0],
                 'link': f'{self.get_base_url()}{columns_url[ProblemSourcesColumn.SOURCE][0].get("href")}'

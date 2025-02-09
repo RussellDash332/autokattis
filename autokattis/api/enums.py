@@ -109,9 +109,11 @@ class DefaultRanklistColumn(IntEnum):
 class ProblemAuthorsColumn(IntEnum):
     AUTHOR = 0
     PROBLEMS = 1
-    AVG_DIFF = 2
+    SOLVED = 2
+    AVG_DIFF = 4
 
 class ProblemSourcesColumn(IntEnum):
     SOURCE = 0
     PROBLEMS = 1
-    AVG_DIFF = 2
+    SOLVED = 2
+    AVG_DIFF = 4
