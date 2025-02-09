@@ -55,26 +55,26 @@ class SolvedProblemsColumn(IntEnum):
 
 class RanklistField():
     SUBDIVISION = 'Subdivision'
-    UNIVERSITY = 'University'
+    AFFILIATION = 'Affiliation'
     COUNTRY = 'Country'
 
 class UserRanklistColumn(IntEnum):
     RANK = 0
     USER = 1
     COUNTRY = 2
-    UNIVERSITY = 3
+    AFFILIATION = 3
     SCORE = 4
 
 class CountryRanklistColumn(IntEnum):
     RANK = 0
     COUNTRY = 1
     USERS = 2
-    UNIVERSITIES = 3
+    AFFILIATIONS = 3
     SCORE = 4
 
-class UniversityRanklistColumn(IntEnum):
+class AffiliationRanklistColumn(IntEnum):
     RANK = 0
-    UNIVERSITY = 1
+    AFFILIATION = 1
     COUNTRY = 2
     SUBDIVISION = 3
     USERS = 4
@@ -84,10 +84,10 @@ class SingleCountryRanklistColumn(IntEnum):
     RANK = 0
     USER = 1
     SUBDIVISION = 2
-    UNIVERSITY = -2
+    AFFILIATION = -2
     SCORE = -1
 
-class SingleUniversityRanklistColumn(IntEnum):
+class SingleAffiliationRanklistColumn(IntEnum):
     RANK = 0
     USER = 1
     COUNTRY = 2
@@ -98,7 +98,7 @@ class ChallengeRanklistColumn(IntEnum):
     RANK = 0
     USER = 1
     COUNTRY = 2
-    UNIVERSITY = 3
+    AFFILIATION = 3
     CHALLENGE_SCORE = 4
 
 class DefaultRanklistColumn(IntEnum):

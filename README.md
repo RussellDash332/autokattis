@@ -77,9 +77,9 @@ kt.country_ranklist()                                                   # top 10
 kt.country_ranklist('Singapore')                                        # specific country
 kt.country_ranklist('SGP')                                              # use country code instead
 
-kt.university_ranklist()                                                # top 100 universities
-kt.university_ranklist(university='National University of Singapore')   # specific university
-kt.university_ranklist(university='nus.edu.sg')                         # use university domain instead
+kt.affiliation_ranklist()                                               # top 100 affiliations
+kt.affiliation_ranklist(affiliation='National University of Singapore') # specific affiliation
+kt.affiliation_ranklist(affiliation='nus.edu.sg')                       # use affiliation domain instead
 ```
 
 ### NUSKattis

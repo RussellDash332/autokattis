@@ -1,4 +1,4 @@
-import re
+import json
 
 class DatabaseManager:
     def __init__(self, user):
@@ -16,21 +16,21 @@ class DatabaseManager:
 
         self.COUNTRIES = {}
         soup = user.get_soup_response(f'{user.get_base_url()}/ranklist/countries')
-        for script in soup.find_all('script'):
-            for name, code in re.findall('"text": "([^"]*)","url": "([^"]*)"', script.text):
-                _, cat, code = code.replace('\\', '').split('/')
-                name = name.encode().decode('unicode_escape')
+        for script in soup.find_all('script', {'id': 'country_select_data'}):
+            for country in json.loads(script.text):
+                _, cat, code = country['url'].replace('\\', '').split('/')
+                name = country['text'].encode().decode('unicode_escape')
                 if cat == 'countries': self.COUNTRIES[code] = name
         print(f'[database] Listed all {len(self.COUNTRIES)} available countries!', flush=True)
 
-        self.UNIVERSITIES = {}
-        soup = user.get_soup_response(f'{user.get_base_url()}/ranklist/universities')
-        for script in soup.find_all('script'):
-            for name, code in re.findall('"text": "([^"]*)","url": "([^"]*)"', script.text):
-                _, cat, code = code.replace('\\', '').split('/')
-                name = name.encode().decode('unicode_escape')
-                if cat == 'universities': self.UNIVERSITIES[code] = name
-        print(f'[database] Listed all {len(self.UNIVERSITIES)} available universities!', flush=True)
+        self.AFFILIATIONS = {}
+        soup = user.get_soup_response(f'{user.get_base_url()}/ranklist/affiliations')
+        for script in soup.find_all('script', {'id': 'affiliation_select_data'}):
+            for affiliation in json.loads(script.text):
+                _, cat, code = affiliation['url'].replace('\\', '').split('/')
+                name = affiliation['text'].encode().decode('unicode_escape')
+                if cat == 'affiliation': self.AFFILIATIONS[code] = name
+        print(f'[database] Listed all {len(self.AFFILIATIONS)} available affiliations!', flush=True)
 
     def get_languages(self):
         return self.LANGUAGES
@@ -38,5 +38,5 @@ class DatabaseManager:
     def get_countries(self):
         return self.COUNTRIES
 
-    def get_universities(self):
-        return self.UNIVERSITIES
+    def get_affiliations(self):
+        return self.AFFILIATIONS

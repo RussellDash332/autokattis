@@ -1,4 +1,5 @@
 import io
+import json
 import math
 import re
 import zipfile
@@ -14,8 +15,8 @@ from . import ABCKattis
 from .enums import (
     ChallengeRanklistColumn, CountryRanklistColumn, DefaultRanklistColumn, DifficultyColor,
     ProblemAuthorsColumn, ProblemMetadataField, ProblemSourcesColumn, ProblemStatisticsColumn,
-    ProblemsColumn, RanklistField, SingleCountryRanklistColumn, SingleUniversityRanklistColumn,
-    SolvedProblemsColumn, SubmissionsColumn, UniversityRanklistColumn, UserRanklistColumn
+    ProblemsColumn, RanklistField, SingleCountryRanklistColumn, SingleAffiliationRanklistColumn,
+    SolvedProblemsColumn, SubmissionsColumn, AffiliationRanklistColumn, UserRanklistColumn
 )
 from .utils import (
     get_last_path, get_table_headers, get_table_rows, guess_id,
@@ -46,6 +47,8 @@ class OpenKattis(ABCKattis):
         - show_partial: True if you want to include partially solved problems, False otherwise. By default, this is set to True.
         - show_tried: True if you want to include unsolved problems that you have attempted, False otherwise. By default, this is set to False.
         - show_untried: True if you want to include unsolved problems that you have never attempted, False otherwise. By default, this is set to False.
+
+        Note that if you already have a lot of submissions, the low detail mode might run slower for you.
 
         Example for low detail mode:
         [
@@ -291,6 +294,26 @@ class OpenKattis(ABCKattis):
                         "test_case_full": 4,
                         "link": "https://open.kattis.com/submissions/123456"
                     }
+                ],
+                "breakpoints": [
+                    {
+                        "breakpoint": 0,
+                        "difficulty": 1.5,
+                        "tooltip_text": "Easy",
+                        "difficulty_category": "easy"
+                    },
+                    {
+                        "breakpoint": 40,
+                        "difficulty": 4,
+                        "tooltip_text": "Medium",
+                        "difficulty_category": "medium"
+                    },
+                    {
+                        "breakpoint": 100,
+                        "difficulty": 5.9,
+                        "tooltip_text": "Hard",
+                        "difficulty_category": "hard"
+                    }
                 ]
             }
         ]
@@ -318,7 +341,7 @@ class OpenKattis(ABCKattis):
                     elif div_text[0] == ProblemMetadataField.MEMORY_LIMIT:
                         memory = div_text[-1].strip()
                     elif len(div_text) > 1 and div_text[1] == ProblemMetadataField.DIFFICULTY:
-                        difficulty = float((re.findall('[\d\.]+', columns[ProblemsColumn.DIFFICULTY_CATEGORY].text) or [None])[-1])
+                        difficulty = float((re.findall('[\d\.]+', div_text[0]) or [None])[-1])
                                     # [0] instead of [-1] if we want to take min instead of max
                                     # for example:
                                     # - difficulty 9.1-9.6 -> [9.1, 9.6]
@@ -374,6 +397,10 @@ class OpenKattis(ABCKattis):
                             'date': columns[ProblemStatisticsColumn.DATE].text
                         })
                 stats['description'] = description
+            data['breakpoints'] = []
+            for canvas in soup.find_all('canvas'):
+                breakpoints = canvas.get('data-breakpoints')
+                if breakpoints != None: data['breakpoints'] = json.loads(breakpoints)
 
             # my submissions
             data['submissions'] = []
@@ -614,8 +641,8 @@ class OpenKattis(ABCKattis):
                 "points": 12345.6,
                 "country_code": "USA",
                 "country": "United States",
-                "university_code": "nus.edu.sg",
-                "university": "National University of Singapore"
+                "affiliation_code": "nus.edu.sg",
+                "affiliation": "National University of Singapore"
             },
             ...,
             {
@@ -625,8 +652,8 @@ class OpenKattis(ABCKattis):
                 "points": 1.2,
                 "country_code": "SGP",
                 "country": "Singapore",
-                "university_code": "mit.edu",
-                "university": "Massachusetts Institute of Technology"
+                "affiliation_code": "mit.edu",
+                "affiliation": "Massachusetts Institute of Technology"
             }
         ]
         '''
@@ -650,9 +677,9 @@ class OpenKattis(ABCKattis):
             country_urls = columns_url[UserRanklistColumn.COUNTRY]
             country_code = get_last_path(country_urls[0].get('href')) if country_urls else None
 
-            university = columns_text[UserRanklistColumn.UNIVERSITY]
-            university_urls = columns_url[UserRanklistColumn.UNIVERSITY]
-            university_code = get_last_path(university_urls[0].get('href')) if university_urls else None
+            affiliation = columns_text[UserRanklistColumn.AFFILIATION]
+            affiliation_urls = columns_url[UserRanklistColumn.AFFILIATION]
+            affiliation_code = get_last_path(affiliation_urls[0].get('href')) if affiliation_urls else None
 
             data.append({
                 'rank': int(columns_text[UserRanklistColumn.RANK]) if columns_text[UserRanklistColumn.RANK].isdigit() else None,
@@ -661,8 +688,8 @@ class OpenKattis(ABCKattis):
                 'points': float(columns_text[UserRanklistColumn.SCORE]),
                 'country_code': country_code if country else None,
                 'country': country or None,
-                'university_code': university_code if university else None,
-                'university': university or None
+                'affiliation_code': affiliation_code if affiliation else None,
+                'affiliation': affiliation or None
             })
         return self.Result(data)
 
@@ -678,7 +705,7 @@ class OpenKattis(ABCKattis):
                 "country": "United States",
                 "country_code": "USA",
                 "users": 12345,
-                "universities": 2345,
+                "affiliations": 2345,
                 "points": 1234.5
             },
             ...,
@@ -687,7 +714,7 @@ class OpenKattis(ABCKattis):
                 "country": "Singapore",
                 "country_code": "SGP",
                 "users": 1,
-                "universities": 1,
+                "affiliations": 1,
                 "points": 1.2
             }
         ]
@@ -703,8 +730,8 @@ class OpenKattis(ABCKattis):
                 "country": "Singapore",
                 "subdivision_code": None,
                 "subdivision": None,
-                "university_code": "nus.edu.sg",
-                "university": "National University of Singapore"
+                "affiliation_code": "nus.edu.sg",
+                "affiliation": "National University of Singapore"
             },
             ...,
             {
@@ -716,8 +743,8 @@ class OpenKattis(ABCKattis):
                 "country": "Singapore",
                 "subdivision_code": "PI",
                 "subdivision": "Punggol Imaginary",
-                "university_code": None,
-                "university": None
+                "affiliation_code": None,
+                "affiliation": None
             }
         ]
         '''
@@ -742,7 +769,7 @@ class OpenKattis(ABCKattis):
                     'country': columns_text[CountryRanklistColumn.COUNTRY],
                     'country_code': get_last_path(columns_url[CountryRanklistColumn.COUNTRY][0].get('href')),
                     'users': int(columns_text[CountryRanklistColumn.USERS]),
-                    'universities': int(columns_text[CountryRanklistColumn.UNIVERSITIES]),
+                    'affiliations': int(columns_text[CountryRanklistColumn.AFFILIATIONS]),
                     'points': float(columns_text[CountryRanklistColumn.SCORE]),
                 })
         else:
@@ -767,12 +794,12 @@ class OpenKattis(ABCKattis):
                 else:
                     subdivision = None
 
-                if RanklistField.UNIVERSITY in headers:
-                    university = columns_text[SingleCountryRanklistColumn.UNIVERSITY]
-                    university_urls = columns_url[SingleCountryRanklistColumn.UNIVERSITY]
-                    university_code = get_last_path(university_urls[0].get('href')) if university_urls else None
+                if RanklistField.AFFILIATION in headers:
+                    affiliation = columns_text[SingleCountryRanklistColumn.AFFILIATION]
+                    affiliation_urls = columns_url[SingleCountryRanklistColumn.AFFILIATION]
+                    affiliation_code = get_last_path(affiliation_urls[0].get('href')) if affiliation_urls else None
                 else:
-                    university = None
+                    affiliation = None
 
                 data.append({
                     'rank': int(columns_text[SingleCountryRanklistColumn.RANK]),
@@ -783,22 +810,22 @@ class OpenKattis(ABCKattis):
                     'country': self.get_database().get_countries()[country_code],
                     'subdivision_code': subdivision_code if subdivision else None,
                     'subdivision': subdivision or None,
-                    'university_code': university_code if university else None,
-                    'university': university or None
+                    'affiliation_code': affiliation_code if affiliation else None,
+                    'affiliation': affiliation or None
                 })
         return self.Result(data)
 
     @lru_cache
-    def university_ranklist(self, value=''):
+    def affiliation_ranklist(self, value=''):
         '''
-        Retrieves the top 100 university ranklist if the value paramater is not set, otherwise a specific university's top 50.
+        Retrieves the top 100 affiliation ranklist if the value paramater is not set, otherwise a specific affiliation's top 50.
 
         Example for top 100:
         [
             {
                 "rank": 1,
-                "university": "National University of Singapore",
-                "university_code": "nus.edu.sg",
+                "affiliation": "National University of Singapore",
+                "affiliation_code": "nus.edu.sg",
                 "country": "Singapore",
                 "country_code": "SGP",
                 "subdivision": None,
@@ -808,8 +835,8 @@ class OpenKattis(ABCKattis):
             ...,
             {
                 "rank": 100,
-                "university": "Not NUS",
-                "university_code": "not.nus",
+                "affiliation": "Not NUS",
+                "affiliation_code": "not.nus",
                 "country": "Antartica",
                 "country_code": "ATC",
                 "subdivision": "Unknown",
@@ -818,7 +845,7 @@ class OpenKattis(ABCKattis):
             }
         ]
 
-        Example for specific university top 50:
+        Example for specific affiliation top 50:
         [
             {
                 "rank": 1,
@@ -829,8 +856,8 @@ class OpenKattis(ABCKattis):
                 "country": "Indonesia",
                 "subdivision_code": "JK",
                 "subdivision": "DKI Jakarta",
-                "university_code": "binus.ac.id",
-                "university": "Binus University"
+                "affiliation_code": "binus.ac.id",
+                "affiliation": "Binus affiliation"
             },
             ...,
             {
@@ -842,16 +869,16 @@ class OpenKattis(ABCKattis):
                 "country": "Indonesia",
                 "subdivision_code": None,
                 "subdivision": None,
-                "university_code": "binus.ac.id",
-                "university": "Binus University"
+                "affiliation_code": "binus.ac.id",
+                "affiliation": "Binus affiliation"
             }
         ]
         '''
 
         data = []
         if value == '':
-            # display top 100 universities
-            soup = self.get_soup_response(f'{self.get_base_url()}/ranklist/universities')
+            # display top 100 affiliations
+            soup = self.get_soup_response(f'{self.get_base_url()}/ranklist/affiliations')
             try:        table = soup.find('table', class_='table2 report_grid-problems_table') or 1/0
             except:     return self.Result([])
 
@@ -864,19 +891,19 @@ class OpenKattis(ABCKattis):
                 columns_url = [column.find_all('a') for column in columns]
 
                 data.append({
-                    'rank': int(columns_text[UniversityRanklistColumn.RANK]),
-                    'university': columns_text[UniversityRanklistColumn.UNIVERSITY],
-                    'university_code': get_last_path(columns_url[UniversityRanklistColumn.UNIVERSITY][0].get('href')),
-                    'country': columns_text[UniversityRanklistColumn.COUNTRY],
-                    'country_code': get_last_path(columns_url[UniversityRanklistColumn.COUNTRY][0].get('href')),
-                    'subdivision': columns_text[UniversityRanklistColumn.SUBDIVISION] or None,
-                    'users': int(columns_text[UniversityRanklistColumn.USERS]),
-                    'points': float(columns_text[UniversityRanklistColumn.SCORE]),
+                    'rank': int(columns_text[AffiliationRanklistColumn.RANK]),
+                    'affiliation': columns_text[AffiliationRanklistColumn.AFFILIATION],
+                    'affiliation_code': get_last_path(columns_url[AffiliationRanklistColumn.AFFILIATION][0].get('href')),
+                    'country': columns_text[AffiliationRanklistColumn.COUNTRY],
+                    'country_code': get_last_path(columns_url[AffiliationRanklistColumn.COUNTRY][0].get('href')),
+                    'subdivision': columns_text[AffiliationRanklistColumn.SUBDIVISION] or None,
+                    'users': int(columns_text[AffiliationRanklistColumn.USERS]),
+                    'points': float(columns_text[AffiliationRanklistColumn.SCORE]),
                 })
         else:
-            # display a specific university
-            university_code = guess_id(value, self.get_database().get_universities())
-            soup = self.get_soup_response(f'{self.get_base_url()}/universities/{university_code}')
+            # display a specific affiliation
+            affiliation_code = guess_id(value, self.get_database().get_affiliations())
+            soup = self.get_soup_response(f'{self.get_base_url()}/affiliation/{affiliation_code}')
             table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
             if not table: return self.Result([])
 
@@ -889,30 +916,30 @@ class OpenKattis(ABCKattis):
                 columns_url = [column.find_all('a') for column in columns]
 
                 if RanklistField.COUNTRY in headers:
-                    country = columns_text[SingleUniversityRanklistColumn.COUNTRY]
-                    country_urls = columns_url[SingleUniversityRanklistColumn.COUNTRY]
+                    country = columns_text[SingleAffiliationRanklistColumn.COUNTRY]
+                    country_urls = columns_url[SingleAffiliationRanklistColumn.COUNTRY]
                     country_code = get_last_path(country_urls[0].get('href')) if country_urls else None
                 else:
                     country = None
 
                 if RanklistField.SUBDIVISION in headers:
-                    subdivision = columns_text[SingleUniversityRanklistColumn.SUBDIVISION]
-                    subdivision_urls = columns_url[SingleUniversityRanklistColumn.SUBDIVISION]
+                    subdivision = columns_text[SingleAffiliationRanklistColumn.SUBDIVISION]
+                    subdivision_urls = columns_url[SingleAffiliationRanklistColumn.SUBDIVISION]
                     subdivision_code = get_last_path(subdivision_urls[0].get('href')) if subdivision_urls else None
                 else:
                     subdivision = None
 
                 data.append({
-                    'rank': int(columns_text[SingleUniversityRanklistColumn.RANK]),
-                    'name': columns_text[SingleUniversityRanklistColumn.USER],
-                    'username': get_last_path(columns_url[SingleUniversityRanklistColumn.USER][0].get('href')),
-                    'points': float(columns_text[SingleUniversityRanklistColumn.SCORE]),
+                    'rank': int(columns_text[SingleAffiliationRanklistColumn.RANK]),
+                    'name': columns_text[SingleAffiliationRanklistColumn.USER],
+                    'username': get_last_path(columns_url[SingleAffiliationRanklistColumn.USER][0].get('href')),
+                    'points': float(columns_text[SingleAffiliationRanklistColumn.SCORE]),
                     'country_code': country_code if country else None,
                     'country': country or None,
                     'subdivision_code': subdivision_code if subdivision else None,
                     'subdivision': subdivision or None,
-                    'university_code': university_code,
-                    'university': self.get_database().get_universities()[university_code]
+                    'affiliation_code': affiliation_code,
+                    'affiliation': self.get_database().get_affiliations()[affiliation_code]
                 })
         return self.Result(data)
 
@@ -930,8 +957,8 @@ class OpenKattis(ABCKattis):
                 "score": 12345.6,
                 "country_code": "USA",
                 "country": "United States",
-                "university_code": "nus.edu.sg",
-                "university": "National University of Singapore"
+                "affiliation_code": "nus.edu.sg",
+                "affiliation": "National University of Singapore"
             },
             ...,
             {
@@ -941,8 +968,8 @@ class OpenKattis(ABCKattis):
                 "score": 1.2,
                 "country_code": "SGP",
                 "country": "Singapore",
-                "university_code": "mit.edu",
-                "university": "Massachusetts Institute of Technology"
+                "affiliation_code": "mit.edu",
+                "affiliation": "Massachusetts Institute of Technology"
             }
         ]
         '''
@@ -966,9 +993,9 @@ class OpenKattis(ABCKattis):
             country_urls = columns_url[ChallengeRanklistColumn.COUNTRY]
             country_code = get_last_path(country_urls[0].get('href')) if country_urls else None
 
-            university = columns_text[ChallengeRanklistColumn.UNIVERSITY]
-            university_urls = columns_url[ChallengeRanklistColumn.UNIVERSITY]
-            university_code = get_last_path(university_urls[0].get('href')) if university_urls else None
+            affiliation = columns_text[ChallengeRanklistColumn.AFFILIATION]
+            affiliation_urls = columns_url[ChallengeRanklistColumn.AFFILIATION]
+            affiliation_code = get_last_path(affiliation_urls[0].get('href')) if affiliation_urls else None
 
             data.append({
                 'rank': int(columns_text[ChallengeRanklistColumn.RANK]) if columns_text[ChallengeRanklistColumn.RANK].isdigit() else None,
@@ -977,8 +1004,8 @@ class OpenKattis(ABCKattis):
                 'score': float(columns_text[ChallengeRanklistColumn.CHALLENGE_SCORE]),
                 'country_code': country_code if country else None,
                 'country': country or None,
-                'university_code': university_code if university else None,
-                'university': university or None
+                'affiliation_code': affiliation_code if affiliation else None,
+                'affiliation': affiliation or None
             })
         return self.Result(data)
 
@@ -994,10 +1021,10 @@ class OpenKattis(ABCKattis):
                 "name": "Jack",
                 "points": 12345.6,
                 "country": "United States",
-                "university": "National University of Singapore"
+                "affiliation": "National University of Singapore"
                 "username": "jackdoe",
                 "country_code": "USA",
-                "university_code": "nus.edu.sg"
+                "affiliation_code": "nus.edu.sg"
             },
             ...,
             {
@@ -1005,7 +1032,7 @@ class OpenKattis(ABCKattis):
                 "name": "Jill",
                 "points": 9000.1,
                 "country": "Singapore",
-                "university": None,
+                "affiliation": None,
                 "username": "jill-doe",
                 "country_code": "SGP"
             }
@@ -1026,16 +1053,16 @@ class OpenKattis(ABCKattis):
                 'name': columns_text[DefaultRanklistColumn.USER],
                 'points': float(re.findall(r'[\d\.]+', columns_text[DefaultRanklistColumn.SCORE])[0]),
                 'country': None,
-                'university': None
+                'affiliation': None
             }
 
             for urlsplit, title in [(column.get('href').split('/'), column.get('title')) for column in columns[DefaultRanklistColumn.USER].find_all('a')]:
-                assert sum(x in urlsplit for x in ['users', 'universities', 'countries']) == 1, 'Only one field should be present'
+                assert sum(x in urlsplit for x in ['users', 'affiliation', 'countries']) == 1, 'Only one field should be present'
                 if 'users' in urlsplit:
                     new_data['username'] = urlsplit[-1]
-                elif 'universities' in urlsplit:
-                    new_data['university_code'] = urlsplit[-1]
-                    new_data['university'] = title
+                elif 'affiliation' in urlsplit:
+                    new_data['affiliation_code'] = urlsplit[-1]
+                    new_data['affiliation'] = title
                 elif 'countries' in urlsplit:
                     new_data['country_code'] = urlsplit[-1]
                     new_data['country'] = title
