@@ -29,7 +29,7 @@ class DatabaseManager:
             for affiliation in json.loads(script.text):
                 _, cat, code = affiliation['url'].replace('\\', '').split('/')
                 name = affiliation['text'].encode().decode('unicode_escape')
-                if cat == 'affiliation': self.AFFILIATIONS[code] = name
+                if cat == 'affiliations': self.AFFILIATIONS[code] = name
         print(f'[database] Listed all {len(self.AFFILIATIONS)} available affiliations!', flush=True)
 
     def get_languages(self):

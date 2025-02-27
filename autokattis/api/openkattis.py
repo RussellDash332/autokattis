@@ -870,7 +870,7 @@ class OpenKattis(ABCKattis):
         else:
             # display a specific affiliation
             affiliation_code = guess_id(value, self.get_database().get_affiliations())
-            soup = self.get_soup_response(f'{self.get_base_url()}/affiliation/{affiliation_code}')
+            soup = self.get_soup_response(f'{self.get_base_url()}/affiliations/{affiliation_code}')
             table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
             if not table: return self.Result([])
 
@@ -1024,10 +1024,10 @@ class OpenKattis(ABCKattis):
             }
 
             for urlsplit, title in [(column.get('href').split('/'), column.get('title')) for column in columns[DefaultRanklistColumn.USER].find_all('a')]:
-                assert sum(x in urlsplit for x in ['users', 'affiliation', 'countries']) == 1, 'Only one field should be present'
+                assert sum(x in urlsplit for x in ['users', 'affiliations', 'countries']) == 1, 'Only one field should be present'
                 if 'users' in urlsplit:
                     new_data['username'] = urlsplit[-1]
-                elif 'affiliation' in urlsplit:
+                elif 'affiliations' in urlsplit:
                     new_data['affiliation_code'] = urlsplit[-1]
                     new_data['affiliation'] = title
                 elif 'countries' in urlsplit:
