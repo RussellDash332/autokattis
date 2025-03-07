@@ -446,13 +446,21 @@ class NUSKattis(ABCKattis):
         [
             {
                 "name": "CS2040_S1_AY2425",
-                "end_date": "2024-12-08"
+                "status": "teaching",
+                "end_date": "2024-12-08",
                 "link": "https://nus.kattis.com/courses/CS2040/CS2040_S1_AY2425"
             },
             {
                 "name": "CS2040_S2_AY2324",
-                "end_date": "2024-05-06"
+                "status": "registered",
+                "end_date": "2024-05-06",
                 "link": "https://nus.kattis.com/courses/CS2040/CS2040_S2_AY2324"
+            },
+            {
+                "name": "CS2040_S2_AY2425",
+                "status": "N/A",
+                "end_date": "2025-05-03",
+                "link": "https://nus.kattis.com/courses/CS2040/CS2040_S2_AY2425"
             }
         ]
         '''
@@ -466,8 +474,10 @@ class NUSKattis(ABCKattis):
             try:
                 name, end_date = [truncate_spaces(column.text.strip()) for column in columns]
                 link, _ = [column.find('a') for column in columns]
+                name_split = name.split('\n')
                 data.append({
-                    'name': name.replace('\n', ''),
+                    'name': name_split[0], # special example: CS2040_S2_AY2324\n \n\n \xa0(teaching)
+                    'status': 'N/A' if len(name_split) == 1 else name_split[-1][name_split[-1].find('(')+1:name_split[-1].find(')')],
                     'end_date': end_date.split()[1][:-1],
                     'link': self.get_base_url() + link.get('href')
                 })
@@ -504,7 +514,9 @@ class NUSKattis(ABCKattis):
             # try to guess
             for cid in self.courses().to_df().course_id:
                 if offering_id in [*self.offerings(cid).to_df().name]: course_id = cid; break
-            assert course_id != None, '[assignments] Cannot guess course ID automatically, please provide one'
+            if course_id == None:
+                print('[assignments] Cannot guess course ID automatically, please provide one', flush=True)
+                return self.Result([])
             print('[assignments] Guessed course ID:', course_id, flush=True)
 
         soup = self.get_soup_response(f'{self.get_base_url()}/courses/{course_id}/{offering_id}')

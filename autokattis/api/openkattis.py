@@ -99,14 +99,16 @@ class OpenKattis(ABCKattis):
         if low_detail_mode:
             # we can just take from the given dropdown list
             soup = self.get_soup_response(f'{self.get_base_url()}/users/{self.get_username()}?tab=submissions')
-            for option in soup.find_all('option')[4:]:
-                pid = option.get('value').strip()
-                if not pid: break
-                data.append({
-                    'name': option.text.strip(),
-                    'id': pid,
-                    'link': f"{self.get_base_url()}/problems/{pid}"
-                })
+            submissions = soup.find('div', {'id': 'submissions-tab'})
+            if submissions:
+                for option in submissions.find_all('option')[1:]: # first option is 'Any Problem'
+                    pid = option.get('value').strip()
+                    if not pid: break
+                    data.append({
+                        'name': option.text.strip(),
+                        'id': pid,
+                        'link': f"{self.get_base_url()}/problems/{pid}"
+                    })
         else:
             params = {
                 'page': 1,
