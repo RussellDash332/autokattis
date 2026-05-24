@@ -54,6 +54,7 @@ class NUSKattis(ABCKattis):
         ]
         '''
 
+        print(f'[problems] show_solved={show_solved}')
         has_content, data = True, []
         pid_set = set()
 
@@ -198,8 +199,10 @@ class NUSKattis(ABCKattis):
 
         ret = []
         if type(problem_ids) == str: problem_ids = [problem_ids]
+        problem_ids = sorted(set(problem_ids))
+        print(f'[problem] download_files={download_files}, problems={problem_ids}')
 
-        for problem_id in {*problem_ids}:
+        for problem_id in problem_ids:
             original_url = f'{self.get_base_url()}/problems/{problem_id}'
             response = self.new_get(original_url)
 
@@ -218,6 +221,10 @@ class NUSKattis(ABCKattis):
                 dest_urls = [response.url]
 
             body = soup.find('div', class_='problembody')
+            if not body:
+                print('[problem] Problem not found, either invalid ID or no related courses with this problem')
+                return self.Result([])
+
             data = {'id': problem_id, 'text': body.text.strip()}
 
             cpu = memory = author = source = ''
@@ -346,8 +353,10 @@ class NUSKattis(ABCKattis):
 
         ret = []
         if type(languages) == str: languages = [languages]
+        languages = sorted(set(languages))
+        print(f'[stats] languages={languages}')
 
-        for language in {*languages}:
+        for language in languages:
             if language and language not in self.get_database().get_languages(): print(f'[stats] Cannot find {language}, language specified must be one of {sorted(self.get_database().get_languages())}'); continue
 
             has_content = True
@@ -363,12 +372,14 @@ class NUSKattis(ABCKattis):
                     has_content = False
                     futures.clear()
                     for _ in range(self.get_max_workers()):
-                        futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/users/{self.get_username()}', params=params.copy()))
+                        futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/users/{self.get_username()}?tab=submissions', params=params.copy()))
                         params['page'] += 1
                     for f in as_completed(futures):
                         response = f.result()
                         soup = bs(response.content, features='lxml')
-                        table = soup.find('table', class_='table2 report_grid-problems_table double-rows')
+                        table = soup.find('table', class_='table2 double-rows')
+                        if not table: continue
+
                         for row in get_table_rows(table):
                             columns = row.find_all('td')
                             if [column.text.strip() for column in columns if column.text.strip()]:
@@ -420,6 +431,7 @@ class NUSKattis(ABCKattis):
         ]
         '''
 
+        print('[courses] Getting list of courses')
         tables = self.get_homepage().find_all('table', class_='table2')
         if not tables: return self.Result([])
         data = []
@@ -465,6 +477,7 @@ class NUSKattis(ABCKattis):
         ]
         '''
 
+        print(f'[offerings] course_id={course_id}')
         soup = self.get_soup_response(f'{self.get_base_url()}/courses/{course_id}')
         table = soup.find('table', class_='table2')
         if not table: return self.Result([])
@@ -510,6 +523,7 @@ class NUSKattis(ABCKattis):
         ]
         '''
 
+        print(f'[assignments] offering_id={offering_id}')
         if course_id == None:
             # try to guess
             for cid in self.courses().to_df().course_id:

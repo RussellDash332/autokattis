@@ -94,6 +94,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
+        print(f'[problems] show_solved={show_solved}, show_partial={show_partial}, show_tried={show_tried}, show_untried={show_untried}, low_detail_mode={low_detail_mode}')
         has_content, data = True, []
 
         if low_detail_mode:
@@ -167,6 +168,8 @@ class OpenKattis(ABCKattis):
 
         By default, this function plots all solved and partially solved problems without saving it to any file.
         '''
+
+        print(f'[plot_problems] filepath={filepath}')
         enum_to_title = lambda c: c.name.replace('_', '/').title()
 
         df = pd.DataFrame(self.problems(show_solved, show_partial, show_tried, show_untried))
@@ -280,8 +283,10 @@ class OpenKattis(ABCKattis):
 
         ret = []
         if type(problem_ids) == str: problem_ids = [problem_ids]
+        problem_ids = sorted(set(problem_ids))
+        print(f'[problem] download_files={download_files}, problems={problem_ids}')
 
-        for problem_id in {*problem_ids}:
+        for problem_id in problem_ids:
             response = self.new_get(f'{self.get_base_url()}/problems/{problem_id}')
 
             if not response.ok: print(f'[problem] Ignoring {problem_id}'); continue
@@ -422,6 +427,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
+        print('[achievements] Getting achievements')
         has_content, params, data = True, {'page': 1}, []
 
         with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:
@@ -430,7 +436,7 @@ class OpenKattis(ABCKattis):
                 has_content = False
                 futures.clear()
                 for _ in range(self.get_max_workers()):
-                    futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/users/{self.get_username()}', params=params.copy()))
+                    futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/users/{self.get_username()}?tab=problems', params=params.copy()))
                     params['page'] += 1
                 for f in as_completed(futures):
                     response = f.result()
@@ -498,13 +504,15 @@ class OpenKattis(ABCKattis):
 
         ret = []
         if type(languages) == str: languages = [languages]
+        languages = sorted(set(languages))
+        print(f'[stats] languages={languages}')
 
-        for language in {*languages}:
+        for language in languages:
             if language and language not in self.get_database().get_languages(): print(f'[stats] Cannot find {language}, language specified must be one of {sorted(self.get_database().get_languages())}'); continue
 
             has_content = True
             params = {
-                'page': 0,
+                'page': 0, # note that this is from 0 instead of 1
                 'status': 'AC',
                 'language': self.get_database().get_languages().get(language)
             }
@@ -515,12 +523,15 @@ class OpenKattis(ABCKattis):
                     has_content = False
                     futures.clear()
                     for _ in range(self.get_max_workers()):
-                        futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/users/{self.get_username()}', params=params.copy()))
+                        futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/users/{self.get_username()}?tab=submissions', params=params.copy()))
                         params['page'] += 1
                     for f in as_completed(futures):
                         response = f.result()
                         soup = bs(response.content, features='lxml')
-                        table = soup.find('table', class_='table2 report_grid-problems_table double-rows')
+
+                        table = soup.find('table', class_='table2 double-rows')
+                        if not table: continue
+
                         for row in get_table_rows(table):
                             columns = row.find_all('td')
                             if [column.text.strip() for column in columns if column.text.strip()]:
@@ -577,8 +588,9 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
+        print('[suggest] Getting suggestions')
         soup = self.get_homepage()
-        try:    table = soup.find_all('table', class_='table2 report_grid-problems_table')[0]
+        try:    table = soup.find_all('table', class_='table2 dividers_over_th')[0] or 1/0
         except: return self.Result([])
     
         data = []
@@ -588,7 +600,7 @@ class OpenKattis(ABCKattis):
             column = row.find('td')
             pid = get_last_path(column.find('a').get('href'))
             link = f'{self.get_base_url()}/problems/{pid}'
-            name, pt = column.text.strip().split('\n')
+            name, pt = [v.strip() for v in column.text.strip().split('\n') if v.strip()]
             pt = pt.strip(' pt')
             data.append({
                 'pid': pid, 'difficulty': difficulty, 'name': name, 'link': link,
@@ -627,9 +639,10 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
+        print('[user_ranklist] Getting top 100 users')
         data = []
         soup = self.get_soup_response(f'{self.get_base_url()}/ranklist')
-        try:        table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users') or 1/0
+        try:        table = soup.find('table', class_='table2') or 1/0
         except:     return self.Result([])
         
         headers = get_table_headers(table)
@@ -654,7 +667,7 @@ class OpenKattis(ABCKattis):
                 'rank': int(columns_text[UserRanklistColumn.RANK]) if columns_text[UserRanklistColumn.RANK].isdigit() else None,
                 'name': columns_text[UserRanklistColumn.USER],
                 'username': get_last_path(name_urls[0].get('href')),
-                'points': float(columns_text[UserRanklistColumn.SCORE]),
+                'points': float(columns_text[UserRanklistColumn.SCORE].replace(',', '')), # handle thousand separators
                 'country_code': country_code if country else None,
                 'country': country or None,
                 'affiliation_code': affiliation_code if affiliation else None,
@@ -721,8 +734,9 @@ class OpenKattis(ABCKattis):
         data = []
         if value == '':
             # display top 100 countries
+            print('[country_ranklist] Getting top 100 countries')
             soup = self.get_soup_response(f'{self.get_base_url()}/ranklist/countries')
-            try:        table = soup.find('table', class_='table2 report_grid-problems_table') or 1/0
+            try:        table = soup.find('table', class_='table2') or 1/0
             except:     return self.Result([])
 
             headers = get_table_headers(table)
@@ -739,13 +753,14 @@ class OpenKattis(ABCKattis):
                     'country_code': get_last_path(columns_url[CountryRanklistColumn.COUNTRY][0].get('href')),
                     'users': int(columns_text[CountryRanklistColumn.USERS]),
                     'affiliations': int(columns_text[CountryRanklistColumn.AFFILIATIONS]),
-                    'points': float(columns_text[CountryRanklistColumn.SCORE]),
+                    'points': float(columns_text[CountryRanklistColumn.SCORE].replace(',', '')) # handle thousand separators
                 })
         else:
             # display a specific country
             country_code = guess_id(value, self.get_database().get_countries())
+            print(f'[country_ranklist] Using country_code={country_code}')
             soup = self.get_soup_response(f'{self.get_base_url()}/countries/{country_code}')
-            try:        table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users') or 1/0
+            try:        table = soup.find('table', class_='table2') or 1/0
             except:     return self.Result([])
 
             headers = get_table_headers(table)
@@ -774,7 +789,7 @@ class OpenKattis(ABCKattis):
                     'rank': int(columns_text[SingleCountryRanklistColumn.RANK]),
                     'name': columns_text[SingleCountryRanklistColumn.USER],
                     'username': get_last_path(columns_url[SingleCountryRanklistColumn.USER][0].get('href')),
-                    'points': float(columns_text[SingleCountryRanklistColumn.SCORE]),
+                    'points': float(columns_text[SingleCountryRanklistColumn.SCORE].replace(',', '')), # handle thousand separators
                     'country_code': country_code,
                     'country': self.get_database().get_countries()[country_code],
                     'subdivision_code': subdivision_code if subdivision else None,
@@ -847,8 +862,9 @@ class OpenKattis(ABCKattis):
         data = []
         if value == '':
             # display top 100 affiliations
+            print('[affiliation_ranklist] Getting top 100 affiliations')
             soup = self.get_soup_response(f'{self.get_base_url()}/ranklist/affiliations')
-            try:        table = soup.find('table', class_='table2 report_grid-problems_table') or 1/0
+            try:        table = soup.find('table', class_='table2') or 1/0
             except:     return self.Result([])
 
             headers = get_table_headers(table)
@@ -867,13 +883,14 @@ class OpenKattis(ABCKattis):
                     'country_code': get_last_path(columns_url[AffiliationRanklistColumn.COUNTRY][0].get('href')),
                     'subdivision': columns_text[AffiliationRanklistColumn.SUBDIVISION] or None,
                     'users': int(columns_text[AffiliationRanklistColumn.USERS]),
-                    'points': float(columns_text[AffiliationRanklistColumn.SCORE]),
+                    'points': float(columns_text[AffiliationRanklistColumn.SCORE].replace(',', '')) # handle thousand separators
                 })
         else:
             # display a specific affiliation
             affiliation_code = guess_id(value, self.get_database().get_affiliations())
+            print(f'[affiliation_ranklist] Using affiliation_code={affiliation_code}')
             soup = self.get_soup_response(f'{self.get_base_url()}/affiliations/{affiliation_code}')
-            table = soup.find('table', class_='table2 report_grid-problems_table', id='top_users')
+            table = soup.find('table', class_='table2')
             if not table: return self.Result([])
 
             headers = get_table_headers(table)
@@ -902,7 +919,7 @@ class OpenKattis(ABCKattis):
                     'rank': int(columns_text[SingleAffiliationRanklistColumn.RANK]),
                     'name': columns_text[SingleAffiliationRanklistColumn.USER],
                     'username': get_last_path(columns_url[SingleAffiliationRanklistColumn.USER][0].get('href')),
-                    'points': float(columns_text[SingleAffiliationRanklistColumn.SCORE]),
+                    'points': float(columns_text[SingleAffiliationRanklistColumn.SCORE].replace(',', '')), # handle thousand separators
                     'country_code': country_code if country else None,
                     'country': country or None,
                     'subdivision_code': subdivision_code if subdivision else None,
@@ -943,9 +960,10 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
+        print('[challenge_ranklist] Getting top 100 challenge users')
         data = []
         soup = self.get_soup_response(f'{self.get_base_url()}/ranklist/challenge')
-        try:        table = soup.find('table', class_='table2 report_grid-problems_table') or 1/0
+        try:        table = soup.find('table', class_='table2') or 1/0
         except:     return self.Result([])
 
         headers = get_table_headers(table)
@@ -970,7 +988,7 @@ class OpenKattis(ABCKattis):
                 'rank': int(columns_text[ChallengeRanklistColumn.RANK]) if columns_text[ChallengeRanklistColumn.RANK].isdigit() else None,
                 'name': columns_text[ChallengeRanklistColumn.USER],
                 'username': get_last_path(name_urls[0].get('href')),
-                'score': float(columns_text[ChallengeRanklistColumn.CHALLENGE_SCORE]),
+                'score': float(columns_text[ChallengeRanklistColumn.CHALLENGE_SCORE].replace(',', '')), # handle thousand separators
                 'country_code': country_code if country else None,
                 'country': country or None,
                 'affiliation_code': affiliation_code if affiliation else None,
@@ -1008,9 +1026,10 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
+        print('[ranklist] Getting users near your rank')
         data = []
         soup = self.get_homepage()
-        try:        table = soup.find_all('table', class_='table2 report_grid-problems_table')[1] or 1/0
+        try:        table = next(tb for tb in soup.find_all('table', class_='table2') if 'User' in [th.text for th in tb.find_all('th')]) or 1/0
         except:     return self.Result([])
 
         for row in get_table_rows(table):
@@ -1020,7 +1039,7 @@ class OpenKattis(ABCKattis):
             new_data = {
                 'rank': int(columns_text[DefaultRanklistColumn.RANK]) if columns_text[DefaultRanklistColumn.RANK].isdigit() else None,
                 'name': columns_text[DefaultRanklistColumn.USER],
-                'points': float(re.findall(r'[\d\.]+', columns_text[DefaultRanklistColumn.SCORE])[0]),
+                'points': float(re.findall(r'[\d\.]+', columns_text[DefaultRanklistColumn.SCORE])[0].replace(',', '')), # handle thousand separators
                 'country': None,
                 'affiliation': None
             }
@@ -1064,30 +1083,42 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        response = self.new_get(f'{self.get_base_url()}/problem-authors')
-        try:        soup = bs(response.content, features='lxml')
-        except:     return self.Result([])
+        print('[problem_authors] Getting problem authors')
+        has_content, params, data = True, {'page': 1}, []
 
-        table = soup.find('table', class_='table2')
-        if not table: return self.Result([])
+        with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:
+            futures = []
+            while has_content:
+                has_content = False
+                futures.clear()
+                for _ in range(self.get_max_workers()):
+                    futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/problem-authors', params=params.copy()))
+                    params['page'] += 1
+                for f in as_completed(futures):
+                    response = f.result()
+                    try:        soup = bs(response.content, features='lxml')
+                    except:     continue
 
-        data = []
-        for row in get_table_rows(table):
-            columns = row.find_all('td')
-            columns_text = [column.text.strip() for column in columns]
-            columns_url = [column.find_all('a') for column in columns]
+                    table = soup.find('table', class_='table2')
+                    if not table:   continue
+                    else:           has_content = True
 
-            try:        difficulty = float(re.findall('[\d\.]+', columns_text[ProblemAuthorsColumn.AVG_DIFF])[-1])
-            except:     difficulty = None
+                    for row in get_table_rows(table):
+                        columns = row.find_all('td')
+                        columns_text = [column.text.strip() for column in columns]
+                        columns_url = [column.find_all('a') for column in columns]
 
-            data.append({
-                'name': columns_text[ProblemAuthorsColumn.AUTHOR].strip(),
-                'problems': int(columns_text[ProblemAuthorsColumn.PROBLEMS]),
-                'num_solved': int(columns_text[ProblemAuthorsColumn.SOLVED]),
-                'avg_difficulty': difficulty,
-                'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemAuthorsColumn.AVG_DIFF]) or ['N/A'])[0],
-                'link': f'{self.get_base_url()}{columns_url[ProblemAuthorsColumn.AUTHOR][0].get("href")}'
-            })
+                        try:        difficulty = float(re.findall('[\d\.]+', columns_text[ProblemAuthorsColumn.AVG_DIFF])[-1])
+                        except:     difficulty = None
+
+                        data.append({
+                            'name': columns_text[ProblemAuthorsColumn.AUTHOR].strip(),
+                            'problems': int(columns_text[ProblemAuthorsColumn.PROBLEMS]),
+                            'num_solved': int(columns_text[ProblemAuthorsColumn.SOLVED]),
+                            'avg_difficulty': difficulty,
+                            'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemAuthorsColumn.AVG_DIFF]) or ['N/A'])[0],
+                            'link': f'{self.get_base_url()}{columns_url[ProblemAuthorsColumn.AUTHOR][0].get("href")}'
+                        })
         return self.Result(data)
 
     @lru_cache
@@ -1116,28 +1147,40 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        response = self.new_get(f'{self.get_base_url()}/problem-sources')
-        try:        soup = bs(response.content, features='lxml')
-        except:     return self.Result([])
+        print('[problem_sources] Getting problem sources')
+        has_content, params, data = True, {'page': 1}, []
 
-        table = soup.find('table', class_='table2')
-        if not table: return self.Result([])
+        with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:
+            futures = []
+            while has_content:
+                has_content = False
+                futures.clear()
+                for _ in range(self.get_max_workers()):
+                    futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/problem-sources', params=params.copy()))
+                    params['page'] += 1
+                for f in as_completed(futures):
+                    response = f.result()
+                    try:        soup = bs(response.content, features='lxml')
+                    except:     continue
 
-        data = []
-        for row in get_table_rows(table):
-            columns = row.find_all('td')
-            columns_text = [column.text.strip() for column in columns]
-            columns_url = [column.find_all('a') for column in columns]
+                    table = soup.find('table', class_='table2')
+                    if not table:   continue
+                    else:           has_content = True
 
-            try:        difficulty = float(re.findall('[\d\.]+', columns_text[ProblemSourcesColumn.AVG_DIFF])[-1])
-            except:     difficulty = None
+                    for row in get_table_rows(table):
+                        columns = row.find_all('td')
+                        columns_text = [column.text.strip() for column in columns]
+                        columns_url = [column.find_all('a') for column in columns]
 
-            data.append({
-                'name': columns_text[ProblemSourcesColumn.SOURCE].strip(),
-                'problems': int(columns_text[ProblemSourcesColumn.PROBLEMS]),
-                'num_solved': int(columns_text[ProblemSourcesColumn.SOLVED]),
-                'avg_difficulty': difficulty,
-                'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemSourcesColumn.AVG_DIFF]) or ['N/A'])[0],
-                'link': f'{self.get_base_url()}{columns_url[ProblemSourcesColumn.SOURCE][0].get("href")}'
-            })
+                        try:        difficulty = float(re.findall('[\d\.]+', columns_text[ProblemSourcesColumn.AVG_DIFF])[-1])
+                        except:     difficulty = None
+
+                        data.append({
+                            'name': columns_text[ProblemSourcesColumn.SOURCE].strip(),
+                            'problems': int(columns_text[ProblemSourcesColumn.PROBLEMS]),
+                            'num_solved': int(columns_text[ProblemSourcesColumn.SOLVED]),
+                            'avg_difficulty': difficulty,
+                            'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemSourcesColumn.AVG_DIFF]) or ['N/A'])[0],
+                            'link': f'{self.get_base_url()}{columns_url[ProblemSourcesColumn.SOURCE][0].get("href")}'
+                        })
         return self.Result(data)
