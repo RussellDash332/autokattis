@@ -760,7 +760,7 @@ class OpenKattis(ABCKattis):
             country_code = guess_id(value, self.get_database().get_countries())
             print(f'[country_ranklist] Using country_code={country_code}')
             soup = self.get_soup_response(f'{self.get_base_url()}/countries/{country_code}')
-            try:        table = soup.find('table', class_='table2') or 1/0
+            try:        table = next(tb for tb in soup.find_all('table', class_='table2') if 'User' in [th.text for th in tb.find_all('th')]) or 1/0
             except:     return self.Result([])
 
             headers = get_table_headers(table)
