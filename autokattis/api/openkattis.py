@@ -153,8 +153,8 @@ class OpenKattis(ABCKattis):
                                     'id': get_last_path(link),
                                     'fastest': replace_double_dash(columns[ProblemsColumn.FASTEST_RUNTIME].text, float('inf')),
                                     'shortest': replace_double_dash(columns[ProblemsColumn.SHORTEST_LENGTH].text, -1),
-                                    'total': int(columns[ProblemsColumn.N_SUBMISSIONS].text),
-                                    'acc': int(columns[ProblemsColumn.N_ACC].text),
+                                    'total': int(columns[ProblemsColumn.N_SUBMISSIONS].text.replace(',', '')),
+                                    'acc': int(columns[ProblemsColumn.N_ACC].text.replace(',', '')),
                                     'difficulty': difficulty,
                                     'category': category,
                                     'link': link
