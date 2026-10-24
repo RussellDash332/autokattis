@@ -20,7 +20,7 @@ def truncate_spaces(text):
     return text if (new_text:=text.replace('  ', ' ')) == text else truncate_spaces(new_text)
 
 def replace_double_dash(text, new):
-    return type(new)(text.replace('--', str(new)).strip())
+    return type(new)(text.replace(',', '').replace('--', str(new)).strip())
 
 def remove_brackets(text):
     return text.replace('(', '').replace(')', '').strip()
