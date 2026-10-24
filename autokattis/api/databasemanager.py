@@ -1,5 +1,7 @@
 import json
 
+from .utils import log
+
 class DatabaseManager:
     def __init__(self, user):
         self.user = user
@@ -12,7 +14,7 @@ class DatabaseManager:
             if val and name: self.LANGUAGES[val] = name
         for val, name in [*self.LANGUAGES.items()]:
             self.LANGUAGES[name] = self.LANGUAGES[val] = val
-        print('[database] Listed all available languages!', flush=True)
+        log('[database] Listed all available languages!', flush=True)
 
         self.COUNTRIES = {}
         soup = user.get_soup_response(f'{user.get_base_url()}/ranklist/countries')
@@ -21,7 +23,7 @@ class DatabaseManager:
                 _, cat, code = country['url'].replace('\\', '').split('/')
                 name = country['text'].encode().decode('unicode_escape')
                 if cat == 'countries': self.COUNTRIES[code] = name
-        print(f'[database] Listed all {len(self.COUNTRIES)} available countries!', flush=True)
+        log(f'[database] Listed all {len(self.COUNTRIES)} available countries!', flush=True)
 
         self.AFFILIATIONS = {}
         soup = user.get_soup_response(f'{user.get_base_url()}/ranklist/affiliations')
@@ -30,7 +32,7 @@ class DatabaseManager:
                 _, cat, code = affiliation['url'].replace('\\', '').split('/')
                 name = affiliation['text'].encode().decode('unicode_escape')
                 if cat == 'affiliations': self.AFFILIATIONS[code] = name
-        print(f'[database] Listed all {len(self.AFFILIATIONS)} available affiliations!', flush=True)
+        log(f'[database] Listed all {len(self.AFFILIATIONS)} available affiliations!', flush=True)
 
     def get_languages(self):
         return self.LANGUAGES

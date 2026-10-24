@@ -4,6 +4,15 @@ import warnings
 
 from thefuzz import fuzz
 
+VERBOSE = True
+
+def set_verbose(verbose):
+    global VERBOSE
+    VERBOSE = bool(verbose)
+
+def log(*args, **kwargs):
+    if VERBOSE: print(*args, **kwargs)
+
 def to_int(value):
     if value is None: return None
     try:

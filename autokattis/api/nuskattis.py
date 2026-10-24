@@ -11,7 +11,7 @@ from .enums import (
     ProblemMetadataField, ProblemStatisticsColumn, SolvedProblemsColumn, SubmissionsColumn
 )
 from .utils import (
-    get_last_path, get_table_headers, get_table_rows, guess_id, list_to_tuple,
+    get_last_path, get_table_headers, get_table_rows, guess_id, list_to_tuple, log,
     remove_brackets, to_float, to_int, truncate_spaces
 )
 
@@ -54,7 +54,7 @@ class NUSKattis(ABCKattis):
         ]
         '''
 
-        print(f'[problems] show_solved={show_solved}')
+        log(f'[problems] show_solved={show_solved}')
         has_content, data = True, []
         pid_set = set()
 
@@ -200,13 +200,13 @@ class NUSKattis(ABCKattis):
         ret = []
         if type(problem_ids) == str: problem_ids = [problem_ids]
         problem_ids = sorted(set(problem_ids))
-        print(f'[problem] download_files={download_files}, problems={problem_ids}')
+        log(f'[problem] download_files={download_files}, problems={problem_ids}')
 
         for problem_id in problem_ids:
             original_url = f'{self.get_base_url()}/problems/{problem_id}'
             response = self.new_get(original_url)
 
-            if not response.ok: print(f'[problem] Ignoring {problem_id}'); continue
+            if not response.ok: log(f'[problem] Ignoring {problem_id}'); continue
 
             soup = bs(response.content, features='lxml')
             if response.url == original_url:
@@ -222,7 +222,7 @@ class NUSKattis(ABCKattis):
 
             body = soup.find('div', class_='problembody')
             if not body:
-                print('[problem] Problem not found, either invalid ID or no related courses with this problem')
+                log('[problem] Problem not found, either invalid ID or no related courses with this problem')
                 return self.Result([])
 
             data = {'id': problem_id, 'text': body.text.strip()}
@@ -354,7 +354,7 @@ class NUSKattis(ABCKattis):
         ret = []
         if type(languages) == str: languages = [languages]
         languages = sorted(set(languages))
-        print(f'[stats] languages={languages}')
+        log(f'[stats] languages={languages}')
 
         def submission_sort_key(submission, fallback_score):
             score = submission.get('score')
@@ -369,7 +369,7 @@ class NUSKattis(ABCKattis):
             )
 
         for language in languages:
-            if language and language not in self.get_database().get_languages(): print(f'[stats] Cannot find {language}, language specified must be one of {sorted(self.get_database().get_languages())}'); continue
+            if language and language not in self.get_database().get_languages(): log(f'[stats] Cannot find {language}, language specified must be one of {sorted(self.get_database().get_languages())}'); continue
 
             has_content = True
             params = {
@@ -446,7 +446,7 @@ class NUSKattis(ABCKattis):
         ]
         '''
 
-        print('[courses] Getting list of courses')
+        log('[courses] Getting list of courses')
         tables = self.get_homepage().find_all('table', class_='table2')
         if not tables: return self.Result([])
         data = []
@@ -492,7 +492,7 @@ class NUSKattis(ABCKattis):
         ]
         '''
 
-        print(f'[offerings] course_id={course_id}')
+        log(f'[offerings] course_id={course_id}')
         soup = self.get_soup_response(f'{self.get_base_url()}/courses/{course_id}')
         table = soup.find('table', class_='table2')
         if not table: return self.Result([])
@@ -538,15 +538,15 @@ class NUSKattis(ABCKattis):
         ]
         '''
 
-        print(f'[assignments] offering_id={offering_id}')
+        log(f'[assignments] offering_id={offering_id}')
         if course_id == None:
             # try to guess
             for cid in self.courses().to_df().course_id:
                 if offering_id in [*self.offerings(cid).to_df().name]: course_id = cid; break
             if course_id == None:
-                print('[assignments] Cannot guess course ID automatically, please provide one', flush=True)
+                log('[assignments] Cannot guess course ID automatically, please provide one', flush=True)
                 return self.Result([])
-            print('[assignments] Guessed course ID:', course_id, flush=True)
+            log('[assignments] Guessed course ID:', course_id, flush=True)
 
         soup = self.get_soup_response(f'{self.get_base_url()}/courses/{course_id}/{offering_id}')
         data = []

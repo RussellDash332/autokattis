@@ -26,6 +26,16 @@ kt = OpenKattis('username') # which will then prompt you for the password
 
 where `'username'` is your Kattis username/email and `'password'` is your Kattis account password. **Both should be provided as Python strings.**
 
+Tagged status messages can be muted or enabled globally with `set_verbose`:
+
+```py
+from autokattis import OpenKattis, set_verbose
+
+set_verbose(False) # mute [login], [database], and API status messages
+kt = OpenKattis('username', 'password')
+set_verbose(True)  # enable them again
+```
+
 Similarly if you want to login to NUS Kattis.
 
 ```py

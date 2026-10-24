@@ -20,7 +20,7 @@ from .enums import (
 )
 from .utils import (
     get_last_path, get_table_headers, get_table_rows, guess_id,
-    list_to_tuple, parse_interval, to_float, to_int
+    list_to_tuple, log, parse_interval, to_float, to_int
 )
 
 class OpenKattis(ABCKattis):
@@ -94,7 +94,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        print(f'[problems] show_solved={show_solved}, show_partial={show_partial}, show_tried={show_tried}, show_untried={show_untried}, low_detail_mode={low_detail_mode}')
+        log(f'[problems] show_solved={show_solved}, show_partial={show_partial}, show_tried={show_tried}, show_untried={show_untried}, low_detail_mode={low_detail_mode}')
         has_content, data = True, []
 
         if low_detail_mode:
@@ -165,7 +165,7 @@ class OpenKattis(ABCKattis):
         By default, this function plots all solved and partially solved problems without saving it to any file.
         '''
 
-        print(f'[plot_problems] filepath={filepath}')
+        log(f'[plot_problems] filepath={filepath}')
         enum_to_title = lambda c: c.name.replace('_', '/').title()
 
         df = pd.DataFrame(self.problems(show_solved, show_partial, show_tried, show_untried))
@@ -183,7 +183,7 @@ class OpenKattis(ABCKattis):
         plt.legend(title='Category', loc='upper right', labels=hue_order[::-1])
         plt.xticks([*range(diff_lo, diff_hi+1)])
 
-        if filepath != None: plt.savefig(filepath), print(f'[plot_problems] Saved to {filepath}')
+        if filepath != None: plt.savefig(filepath), log(f'[plot_problems] Saved to {filepath}')
 
         plt.show()
 
@@ -281,12 +281,12 @@ class OpenKattis(ABCKattis):
         ret = []
         if type(problem_ids) == str: problem_ids = [problem_ids]
         problem_ids = sorted(set(problem_ids))
-        print(f'[problem] download_files={download_files}, problems={problem_ids}')
+        log(f'[problem] download_files={download_files}, problems={problem_ids}')
 
         for problem_id in problem_ids:
             response = self.new_get(f'{self.get_base_url()}/problems/{problem_id}')
 
-            if not response.ok: print(f'[problem] Ignoring {problem_id}'); continue
+            if not response.ok: log(f'[problem] Ignoring {problem_id}'); continue
 
             soup = bs(response.content, features='lxml')
             header = soup.find('h1', class_='book-page-heading')
@@ -421,7 +421,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        print('[achievements] Getting achievements')
+        log('[achievements] Getting achievements')
         has_content, params, data = True, {'solved-page': 1}, []
 
         with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:
@@ -503,7 +503,7 @@ class OpenKattis(ABCKattis):
         ret = []
         if type(languages) == str: languages = [languages]
         languages = sorted(set(languages))
-        print(f'[stats] languages={languages}')
+        log(f'[stats] languages={languages}')
 
         def submission_sort_key(submission, fallback_score):
             score = submission.get('score')
@@ -518,7 +518,7 @@ class OpenKattis(ABCKattis):
             )
 
         for language in languages:
-            if language and language not in self.get_database().get_languages(): print(f'[stats] Cannot find {language}, language specified must be one of {sorted(self.get_database().get_languages())}'); continue
+            if language and language not in self.get_database().get_languages(): log(f'[stats] Cannot find {language}, language specified must be one of {sorted(self.get_database().get_languages())}'); continue
 
             has_content = True
             params = {
@@ -601,7 +601,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        print('[suggest] Getting suggestions')
+        log('[suggest] Getting suggestions')
         soup = self.get_homepage()
         try:    table = soup.find_all('table', class_='table2 dividers_over_th')[0] or 1/0
         except: return self.Result([])
@@ -653,7 +653,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        print('[user_ranklist] Getting top 100 users')
+        log('[user_ranklist] Getting top 100 users')
         data = []
         soup = self.get_soup_response(f'{self.get_base_url()}/ranklist')
         try:        table = soup.find('table', class_='table2') or 1/0
@@ -748,7 +748,7 @@ class OpenKattis(ABCKattis):
         data = []
         if value == '':
             # display top 100 countries
-            print('[country_ranklist] Getting top 100 countries')
+            log('[country_ranklist] Getting top 100 countries')
             soup = self.get_soup_response(f'{self.get_base_url()}/ranklist/countries')
             try:        table = soup.find('table', class_='table2') or 1/0
             except:     return self.Result([])
@@ -772,7 +772,7 @@ class OpenKattis(ABCKattis):
         else:
             # display a specific country
             country_code = guess_id(value, self.get_database().get_countries())
-            print(f'[country_ranklist] Using country_code={country_code}')
+            log(f'[country_ranklist] Using country_code={country_code}')
             soup = self.get_soup_response(f'{self.get_base_url()}/countries/{country_code}')
             try:        table = next(tb for tb in soup.find_all('table', class_='table2') if 'User' in [th.text.strip() for th in tb.find_all('th')]) or 1/0
             except:     return self.Result([])
@@ -876,7 +876,7 @@ class OpenKattis(ABCKattis):
         data = []
         if value == '':
             # display top 100 affiliations
-            print('[affiliation_ranklist] Getting top 100 affiliations')
+            log('[affiliation_ranklist] Getting top 100 affiliations')
             soup = self.get_soup_response(f'{self.get_base_url()}/ranklist/affiliations')
             try:        table = soup.find('table', class_='table2') or 1/0
             except:     return self.Result([])
@@ -902,7 +902,7 @@ class OpenKattis(ABCKattis):
         else:
             # display a specific affiliation
             affiliation_code = guess_id(value, self.get_database().get_affiliations())
-            print(f'[affiliation_ranklist] Using affiliation_code={affiliation_code}')
+            log(f'[affiliation_ranklist] Using affiliation_code={affiliation_code}')
             soup = self.get_soup_response(f'{self.get_base_url()}/affiliations/{affiliation_code}')
             table = soup.find('table', class_='table2')
             if not table: return self.Result([])
@@ -974,7 +974,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        print('[challenge_ranklist] Getting top 100 challenge users')
+        log('[challenge_ranklist] Getting top 100 challenge users')
         data = []
         soup = self.get_soup_response(f'{self.get_base_url()}/ranklist/challenge')
         try:        table = soup.find('table', class_='table2') or 1/0
@@ -1040,7 +1040,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        print('[ranklist] Getting users near your rank')
+        log('[ranklist] Getting users near your rank')
         data = []
         soup = self.get_homepage()
         try:        table = next(tb for tb in soup.find_all('table', class_='table2') if 'User' in [th.text.strip() for th in tb.find_all('th')]) or 1/0
@@ -1097,7 +1097,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        print('[problem_authors] Getting problem authors')
+        log('[problem_authors] Getting problem authors')
         has_content, params, data = True, {'page': 1}, []
 
         with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:
@@ -1160,7 +1160,7 @@ class OpenKattis(ABCKattis):
         ]
         '''
 
-        print('[problem_sources] Getting problem sources')
+        log('[problem_sources] Getting problem sources')
         has_content, params, data = True, {'page': 1}, []
 
         with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:

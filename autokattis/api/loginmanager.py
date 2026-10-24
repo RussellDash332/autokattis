@@ -2,6 +2,8 @@ from collections import Counter
 from getpass import getpass
 import re
 
+from .utils import log
+
 class LoginManager:
     def __init__(self, user):
         self.user = user
@@ -36,6 +38,6 @@ class LoginManager:
         assert ctr, '[login] There are issues when logging in to Kattis, please check your username again'
         max_freq = max(ctr.values())
         candidate_usernames = [name for name in ctr if ctr[name] == max_freq]
-        print(f'[login] Candidate username(s): {candidate_usernames}', flush=True)
-        print(f'[login] Successfully logged in to Kattis as {candidate_usernames[0]}!', flush=True)
+        log(f'[login] Candidate username(s): {candidate_usernames}', flush=True)
+        log(f'[login] Successfully logged in to Kattis as {candidate_usernames[0]}!', flush=True)
         return candidate_usernames[0]
