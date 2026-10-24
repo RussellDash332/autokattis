@@ -20,7 +20,7 @@ from .enums import (
 )
 from .utils import (
     get_last_path, get_table_headers, get_table_rows, guess_id,
-    list_to_tuple, replace_double_dash
+    list_to_tuple, parse_interval, to_float, to_int
 )
 
 class OpenKattis(ABCKattis):
@@ -139,26 +139,22 @@ class OpenKattis(ABCKattis):
                         for row in table_content:
                             columns = row.find_all('td')
                             if columns:
-                                has_content = True
                                 link = f"{self.get_base_url()}{columns[ProblemsColumn.PROBLEM_NAME].find('a').get('href')}"
-                                difficulty = float((re.findall('[\d\.]+', columns[ProblemsColumn.DIFFICULTY_CATEGORY].text) or [None])[-1])
-                                    # [0] instead of [-1] if we want to take min instead of max
-                                    # for example:
-                                    # - difficulty 9.1-9.6 -> [9.1, 9.6]
-                                    # - difficulty 5.0 -> [5.0]
+                                difficulty = parse_interval(columns[ProblemsColumn.DIFFICULTY_CATEGORY].text)
                                 try:    category = (re.findall('[A-Za-z]+', columns[ProblemsColumn.DIFFICULTY_CATEGORY].text) or ['N/A'])[0]
                                 except: category = 'N/A'
                                 data.append({
                                     'name': columns[ProblemsColumn.PROBLEM_NAME].text.strip(),
                                     'id': get_last_path(link),
-                                    'fastest': replace_double_dash(columns[ProblemsColumn.FASTEST_RUNTIME].text, float('inf')),
-                                    'shortest': replace_double_dash(columns[ProblemsColumn.SHORTEST_LENGTH].text, -1),
-                                    'total': int(columns[ProblemsColumn.N_SUBMISSIONS].text.replace(',', '')),
-                                    'acc': int(columns[ProblemsColumn.N_ACC].text.replace(',', '')),
+                                    'fastest': to_float(columns[ProblemsColumn.FASTEST_RUNTIME].text),
+                                    'shortest': to_int(columns[ProblemsColumn.SHORTEST_LENGTH].text),
+                                    'total': to_int(columns[ProblemsColumn.N_SUBMISSIONS].text),
+                                    'acc': to_int(columns[ProblemsColumn.N_ACC].text),
                                     'difficulty': difficulty,
                                     'category': category,
                                     'link': link
                                 })
+                                has_content = True
         return self.Result(sorted(data, key=lambda x: x['id']))
 
     @lru_cache
@@ -203,6 +199,7 @@ class OpenKattis(ABCKattis):
         [
             {
                 "id": "satisfaction",
+                "name": "Satisfaction Guaranteed",
                 "text": "...",
                 "cpu": "45 seconds",
                 "memory": "1024 MB",
@@ -292,8 +289,9 @@ class OpenKattis(ABCKattis):
             if not response.ok: print(f'[problem] Ignoring {problem_id}'); continue
 
             soup = bs(response.content, features='lxml')
+            header = soup.find('h1', class_='book-page-heading')
             body = soup.find('div', class_='problembody')
-            data = {'id': problem_id, 'text': body.text.strip()}
+            data = {'id': problem_id, 'name': header.text.strip(), 'text': body.text.strip()}
 
             cpu = memory = author = source = ''
             difficulty, category, files = None, 'N/A', {}
@@ -305,11 +303,7 @@ class OpenKattis(ABCKattis):
                     elif div_text[0] == ProblemMetadataField.MEMORY_LIMIT:
                         memory = div_text[-1].strip()
                     elif len(div_text) > 1 and div_text[1] == ProblemMetadataField.DIFFICULTY:
-                        difficulty = float((re.findall('[\d\.]+', div_text[0]) or [None])[-1])
-                                    # [0] instead of [-1] if we want to take min instead of max
-                                    # for example:
-                                    # - difficulty 9.1-9.6 -> [9.1, 9.6]
-                                    # - difficulty 5.0 -> [5.0]
+                        difficulty = parse_interval(div_text[0])
                         category = div_text[2].strip() if len(div_text) > 2 else 'N/A'
                     elif div_text[0] == ProblemMetadataField.SOURCE_LICENSE:
                         text_links = [(s.text.strip(), [a.get('href').strip('/') for a in s.find_all('a')]) for s in d.find_all('span') if s.text.strip()]
@@ -325,7 +319,7 @@ class OpenKattis(ABCKattis):
                                     for inner_fn in z.namelist():
                                         with z.open(inner_fn) as inner_file: files[fn][inner_fn] = inner_file.read().decode("utf-8")
                             else:
-                                files[fn] = self.new_get(url).text
+                                files[fn] = self.new_get(url).text # do not strip, as this is the raw content
             data = {
                 **data,
                 'cpu': cpu,
@@ -354,11 +348,11 @@ class OpenKattis(ABCKattis):
                         columns = row.find_all('td')
                         username_a = columns[ProblemStatisticsColumn.NAME].find('a')
                         stats['ranklist'].append({
-                            'rank': int(columns[ProblemStatisticsColumn.RANK].text),
+                            'rank': to_int(columns[ProblemStatisticsColumn.RANK].text),
                             'name': columns[ProblemStatisticsColumn.NAME].text,
                             'username': get_last_path(username_a.get('href')) if username_a else None,
-                            ['runtime', 'length']['shortest' in section_id]: [float, int]['shortest' in section_id](columns[ProblemStatisticsColumn.RUNTIME_OR_LENGTH].text.split()[0]),
-                            'date': columns[ProblemStatisticsColumn.DATE].text
+                            ['runtime', 'length']['shortest' in section_id]: [to_float, to_int]['shortest' in section_id]((columns[ProblemStatisticsColumn.RUNTIME_OR_LENGTH].text.split() or [None])[0]),
+                            'date': columns[ProblemStatisticsColumn.DATE].text.strip()
                         })
                 stats['description'] = description
             data['breakpoints'] = []
@@ -378,7 +372,7 @@ class OpenKattis(ABCKattis):
                         try:
                             status, runtime, language, tc, *_ = columns_text
                             runtime = ' '.join(runtime.split())
-                            test_case_passed, test_case_full = map(int, tc.split('/'))
+                            test_case_passed, test_case_full = map(to_int, tc.split('/'))
                         except:
                             status, language, *_ = columns_text
                             runtime = test_case_passed = test_case_full = None
@@ -428,7 +422,7 @@ class OpenKattis(ABCKattis):
         '''
 
         print('[achievements] Getting achievements')
-        has_content, params, data = True, {'page': 1}, []
+        has_content, params, data = True, {'solved-page': 1}, []
 
         with ThreadPoolExecutor(max_workers=self.get_max_workers()) as executor:
             futures = []
@@ -437,28 +431,32 @@ class OpenKattis(ABCKattis):
                 futures.clear()
                 for _ in range(self.get_max_workers()):
                     futures.append(executor.submit(self.new_get, f'{self.get_base_url()}/users/{self.get_username()}?tab=problems', params=params.copy()))
-                    params['page'] += 1
+                    params['solved-page'] += 1
                 for f in as_completed(futures):
                     response = f.result()
                     soup = bs(response.content, features='lxml')
-                    table = soup.find('table', class_='table2')
+                    div = soup.find('div', id="problems-tab")
+                    table = div.find('table', class_='table2')
                     for row in get_table_rows(table):
                         columns = row.find_all('td')
                         if [column.text.strip() for column in columns if column.text.strip()]:
                             if columns[SolvedProblemsColumn.NAME].find('a') == None: continue
-                            has_content = True
+
+                            has_content = True # might not be an achievement, but means not end of the problem list yet
+
                             link = f"{self.get_base_url()}{columns[SolvedProblemsColumn.NAME].find('a').get('href')}"
                             achievement = ', '.join(sorted(set(sp.text.strip() for sp in columns[SolvedProblemsColumn.ACHIEVEMENTS].find_all('span') if not sp.find_all('span') and sp.text.strip())))
                             if not achievement: continue
-                            try:        difficulty = float(re.findall('[\d\.]+', columns[SolvedProblemsColumn.DIFFICULTY].text)[-1])
-                            except:     difficulty = None
+
+                            difficulty = parse_interval(columns[SolvedProblemsColumn.DIFFICULTY].text)
                             try:        category = re.findall('[A-Za-z]+', columns[SolvedProblemsColumn.DIFFICULTY].text)[0]
                             except:     category = 'N/A'
+
                             data.append({
-                                'name': columns[SolvedProblemsColumn.NAME].text,
+                                'name': columns[SolvedProblemsColumn.NAME].text.strip(),
                                 'id': get_last_path(link),
-                                'runtime': replace_double_dash(columns[SolvedProblemsColumn.CPU_RUNTIME].text, float('inf')),
-                                'length': replace_double_dash(columns[SolvedProblemsColumn.LENGTH].text, -1),
+                                'runtime': to_float(columns[SolvedProblemsColumn.CPU_RUNTIME].text),
+                                'length': to_int(columns[SolvedProblemsColumn.LENGTH].text),
                                 'achievement': achievement,
                                 'difficulty': difficulty,
                                 'category': category,
@@ -507,6 +505,18 @@ class OpenKattis(ABCKattis):
         languages = sorted(set(languages))
         print(f'[stats] languages={languages}')
 
+        def submission_sort_key(submission, fallback_score):
+            score = submission.get('score')
+            if score is None: score = fallback_score
+            passed = submission.get('test_case_passed')
+            runtime = submission.get('runtime') or ''
+            runtime = to_float(1e9 if '>' in runtime else runtime)
+            return (
+                score,
+                passed if passed is not None else 0,
+                -runtime if runtime is not None else -math.inf
+            )
+
         for language in languages:
             if language and language not in self.get_database().get_languages(): print(f'[stats] Cannot find {language}, language specified must be one of {sorted(self.get_database().get_languages())}'); continue
 
@@ -537,9 +547,9 @@ class OpenKattis(ABCKattis):
                             if [column.text.strip() for column in columns if column.text.strip()]:
                                 has_content = True
                                 pid = get_last_path(columns[SubmissionsColumn.CONTEST_PROBLEM_NAME].find_all('a')[-1].get('href')) # might have two links if it belongs to a contest
-                                tc_pass, tc_full = map(int, columns[SubmissionsColumn.TESTCASES].text.split('/'))
+                                tc_pass, tc_full = map(to_int, columns[SubmissionsColumn.TESTCASES].text.split('/'))
 
-                                # not converting runtime to float because some TLE solutions (with '>') can also be AC
+                                # Keep runtime as text because TLE solutions may include '>'.
                                 new_data = {
                                     'name': get_last_path(columns[SubmissionsColumn.CONTEST_PROBLEM_NAME].text),
                                     'timestamp': columns[SubmissionsColumn.SUBMISSION_TIME].text.strip(),
@@ -550,11 +560,14 @@ class OpenKattis(ABCKattis):
                                     'link': f"{self.get_base_url()}/submissions/{get_last_path(columns[SubmissionsColumn.VIEW_DETAILS].find('a').get('href'))}"
                                 }
 
-                                pts_regex = re.findall(r'[\d\.]+', columns[SubmissionsColumn.STATUS].text)
-                                if pts_regex: new_data['score'] = float(pts_regex[0])
+                                pts_regex = re.findall(r'[\d,.]+', columns[SubmissionsColumn.STATUS].text)
+                                if pts_regex:
+                                    score = to_float(pts_regex[0])
+                                    if score is not None: new_data['score'] = score
+                                fallback_score = tc_pass / tc_full if tc_pass is not None and tc_full else 0
                                 data[pid] = new_data if pid not in data else max(
                                     data[pid], new_data,
-                                    key=lambda x: (x.get('score', tc_pass/tc_full), x['test_case_passed'], -float(x['runtime'] if '>' not in x['runtime'] else 1e9))
+                                    key=lambda x: submission_sort_key(x, fallback_score)
                                 )
 
             # wrap-up
@@ -596,7 +609,7 @@ class OpenKattis(ABCKattis):
         data = []
         for row in get_table_rows(table):
             header = row.find('th')
-            if header: difficulty = header.text
+            if header: difficulty = header.text.strip()
             column = row.find('td')
             pid = get_last_path(column.find('a').get('href'))
             link = f'{self.get_base_url()}/problems/{pid}'
@@ -604,7 +617,8 @@ class OpenKattis(ABCKattis):
             pt = pt.strip(' pt')
             data.append({
                 'pid': pid, 'difficulty': difficulty, 'name': name, 'link': link,
-                'min': float(pt.split('-')[0]), 'max': float(pt.split('-')[-1]),
+                'min': parse_interval(pt, 0),
+                'max': parse_interval(pt),
             })
         return self.Result(data)
 
@@ -664,10 +678,10 @@ class OpenKattis(ABCKattis):
             affiliation_code = get_last_path(affiliation_urls[0].get('href')) if affiliation_urls else None
 
             data.append({
-                'rank': int(columns_text[UserRanklistColumn.RANK]) if columns_text[UserRanklistColumn.RANK].isdigit() else None,
+                'rank': to_int(columns_text[UserRanklistColumn.RANK]),
                 'name': columns_text[UserRanklistColumn.USER],
                 'username': get_last_path(name_urls[0].get('href')),
-                'points': float(columns_text[UserRanklistColumn.SCORE].replace(',', '')), # handle thousand separators
+                'points': to_float(columns_text[UserRanklistColumn.SCORE]),
                 'country_code': country_code if country else None,
                 'country': country or None,
                 'affiliation_code': affiliation_code if affiliation else None,
@@ -748,19 +762,19 @@ class OpenKattis(ABCKattis):
                 columns_url = [column.find_all('a') for column in columns]
 
                 data.append({
-                    'rank': int(columns_text[CountryRanklistColumn.RANK]),
+                    'rank': to_int(columns_text[CountryRanklistColumn.RANK]),
                     'country': columns_text[CountryRanklistColumn.COUNTRY],
                     'country_code': get_last_path(columns_url[CountryRanklistColumn.COUNTRY][0].get('href')),
-                    'users': int(columns_text[CountryRanklistColumn.USERS]),
-                    'affiliations': int(columns_text[CountryRanklistColumn.AFFILIATIONS]),
-                    'points': float(columns_text[CountryRanklistColumn.SCORE].replace(',', '')) # handle thousand separators
+                    'users': to_int(columns_text[CountryRanklistColumn.USERS]),
+                    'affiliations': to_int(columns_text[CountryRanklistColumn.AFFILIATIONS]),
+                    'points': to_float(columns_text[CountryRanklistColumn.SCORE])
                 })
         else:
             # display a specific country
             country_code = guess_id(value, self.get_database().get_countries())
             print(f'[country_ranklist] Using country_code={country_code}')
             soup = self.get_soup_response(f'{self.get_base_url()}/countries/{country_code}')
-            try:        table = next(tb for tb in soup.find_all('table', class_='table2') if 'User' in [th.text for th in tb.find_all('th')]) or 1/0
+            try:        table = next(tb for tb in soup.find_all('table', class_='table2') if 'User' in [th.text.strip() for th in tb.find_all('th')]) or 1/0
             except:     return self.Result([])
 
             headers = get_table_headers(table)
@@ -786,10 +800,10 @@ class OpenKattis(ABCKattis):
                     affiliation = None
 
                 data.append({
-                    'rank': int(columns_text[SingleCountryRanklistColumn.RANK]),
+                    'rank': to_int(columns_text[SingleCountryRanklistColumn.RANK]),
                     'name': columns_text[SingleCountryRanklistColumn.USER],
                     'username': get_last_path(columns_url[SingleCountryRanklistColumn.USER][0].get('href')),
-                    'points': float(columns_text[SingleCountryRanklistColumn.SCORE].replace(',', '')), # handle thousand separators
+                    'points': to_float(columns_text[SingleCountryRanklistColumn.SCORE]),
                     'country_code': country_code,
                     'country': self.get_database().get_countries()[country_code],
                     'subdivision_code': subdivision_code if subdivision else None,
@@ -876,14 +890,14 @@ class OpenKattis(ABCKattis):
                 columns_url = [column.find_all('a') for column in columns]
 
                 data.append({
-                    'rank': int(columns_text[AffiliationRanklistColumn.RANK]),
+                    'rank': to_int(columns_text[AffiliationRanklistColumn.RANK]),
                     'affiliation': columns_text[AffiliationRanklistColumn.AFFILIATION],
                     'affiliation_code': get_last_path(columns_url[AffiliationRanklistColumn.AFFILIATION][0].get('href')),
                     'country': columns_text[AffiliationRanklistColumn.COUNTRY],
                     'country_code': get_last_path(columns_url[AffiliationRanklistColumn.COUNTRY][0].get('href')),
                     'subdivision': columns_text[AffiliationRanklistColumn.SUBDIVISION] or None,
-                    'users': int(columns_text[AffiliationRanklistColumn.USERS]),
-                    'points': float(columns_text[AffiliationRanklistColumn.SCORE].replace(',', '')) # handle thousand separators
+                    'users': to_int(columns_text[AffiliationRanklistColumn.USERS]),
+                    'points': to_float(columns_text[AffiliationRanklistColumn.SCORE])
                 })
         else:
             # display a specific affiliation
@@ -916,10 +930,10 @@ class OpenKattis(ABCKattis):
                     subdivision = None
 
                 data.append({
-                    'rank': int(columns_text[SingleAffiliationRanklistColumn.RANK]),
+                    'rank': to_int(columns_text[SingleAffiliationRanklistColumn.RANK]),
                     'name': columns_text[SingleAffiliationRanklistColumn.USER],
                     'username': get_last_path(columns_url[SingleAffiliationRanklistColumn.USER][0].get('href')),
-                    'points': float(columns_text[SingleAffiliationRanklistColumn.SCORE].replace(',', '')), # handle thousand separators
+                    'points': to_float(columns_text[SingleAffiliationRanklistColumn.SCORE]),
                     'country_code': country_code if country else None,
                     'country': country or None,
                     'subdivision_code': subdivision_code if subdivision else None,
@@ -985,10 +999,10 @@ class OpenKattis(ABCKattis):
             affiliation_code = get_last_path(affiliation_urls[0].get('href')) if affiliation_urls else None
 
             data.append({
-                'rank': int(columns_text[ChallengeRanklistColumn.RANK]) if columns_text[ChallengeRanklistColumn.RANK].isdigit() else None,
+                'rank': to_int(columns_text[ChallengeRanklistColumn.RANK]),
                 'name': columns_text[ChallengeRanklistColumn.USER],
                 'username': get_last_path(name_urls[0].get('href')),
-                'score': float(columns_text[ChallengeRanklistColumn.CHALLENGE_SCORE].replace(',', '')), # handle thousand separators
+                'score': to_float(columns_text[ChallengeRanklistColumn.CHALLENGE_SCORE]),
                 'country_code': country_code if country else None,
                 'country': country or None,
                 'affiliation_code': affiliation_code if affiliation else None,
@@ -1029,7 +1043,7 @@ class OpenKattis(ABCKattis):
         print('[ranklist] Getting users near your rank')
         data = []
         soup = self.get_homepage()
-        try:        table = next(tb for tb in soup.find_all('table', class_='table2') if 'User' in [th.text for th in tb.find_all('th')]) or 1/0
+        try:        table = next(tb for tb in soup.find_all('table', class_='table2') if 'User' in [th.text.strip() for th in tb.find_all('th')]) or 1/0
         except:     return self.Result([])
 
         for row in get_table_rows(table):
@@ -1037,9 +1051,9 @@ class OpenKattis(ABCKattis):
             columns_text = [column.text.strip() for column in columns]
 
             new_data = {
-                'rank': int(columns_text[DefaultRanklistColumn.RANK]) if columns_text[DefaultRanklistColumn.RANK].isdigit() else None,
+                'rank': to_int(columns_text[DefaultRanklistColumn.RANK]),
                 'name': columns_text[DefaultRanklistColumn.USER],
-                'points': float(re.findall(r'[\d\.]+', columns_text[DefaultRanklistColumn.SCORE])[0].replace(',', '')), # handle thousand separators
+                'points': parse_interval(columns_text[DefaultRanklistColumn.SCORE], 0),
                 'country': None,
                 'affiliation': None
             }
@@ -1108,13 +1122,12 @@ class OpenKattis(ABCKattis):
                         columns_text = [column.text.strip() for column in columns]
                         columns_url = [column.find_all('a') for column in columns]
 
-                        try:        difficulty = float(re.findall('[\d\.]+', columns_text[ProblemAuthorsColumn.AVG_DIFF])[-1])
-                        except:     difficulty = None
+                        difficulty = parse_interval(columns_text[ProblemAuthorsColumn.AVG_DIFF])
 
                         data.append({
                             'name': columns_text[ProblemAuthorsColumn.AUTHOR].strip(),
-                            'problems': int(columns_text[ProblemAuthorsColumn.PROBLEMS]),
-                            'num_solved': int(columns_text[ProblemAuthorsColumn.SOLVED]),
+                            'problems': to_int(columns_text[ProblemAuthorsColumn.PROBLEMS]),
+                            'num_solved': to_int(columns_text[ProblemAuthorsColumn.SOLVED]),
                             'avg_difficulty': difficulty,
                             'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemAuthorsColumn.AVG_DIFF]) or ['N/A'])[0],
                             'link': f'{self.get_base_url()}{columns_url[ProblemAuthorsColumn.AUTHOR][0].get("href")}'
@@ -1172,13 +1185,12 @@ class OpenKattis(ABCKattis):
                         columns_text = [column.text.strip() for column in columns]
                         columns_url = [column.find_all('a') for column in columns]
 
-                        try:        difficulty = float(re.findall('[\d\.]+', columns_text[ProblemSourcesColumn.AVG_DIFF])[-1])
-                        except:     difficulty = None
+                        difficulty = parse_interval(columns_text[ProblemSourcesColumn.AVG_DIFF])
 
                         data.append({
                             'name': columns_text[ProblemSourcesColumn.SOURCE].strip(),
-                            'problems': int(columns_text[ProblemSourcesColumn.PROBLEMS]),
-                            'num_solved': int(columns_text[ProblemSourcesColumn.SOLVED]),
+                            'problems': to_int(columns_text[ProblemSourcesColumn.PROBLEMS]),
+                            'num_solved': to_int(columns_text[ProblemSourcesColumn.SOLVED]),
                             'avg_difficulty': difficulty,
                             'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemSourcesColumn.AVG_DIFF]) or ['N/A'])[0],
                             'link': f'{self.get_base_url()}{columns_url[ProblemSourcesColumn.SOURCE][0].get("href")}'

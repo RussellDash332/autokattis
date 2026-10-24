@@ -12,7 +12,7 @@ from .enums import (
 )
 from .utils import (
     get_last_path, get_table_headers, get_table_rows, guess_id, list_to_tuple,
-    remove_brackets, replace_double_dash, truncate_spaces
+    remove_brackets, to_float, to_int, truncate_spaces
 )
 
 class NUSKattis(ABCKattis):
@@ -275,10 +275,10 @@ class NUSKattis(ABCKattis):
                         columns = row.find_all('td')
                         username_a = columns[ProblemStatisticsColumn.NAME].find('a')
                         stats['ranklist'].append({
-                            'rank': int(columns[ProblemStatisticsColumn.RANK].text),
+                            'rank': to_int(columns[ProblemStatisticsColumn.RANK].text),
                             'name': columns[ProblemStatisticsColumn.NAME].text,
                             'username': get_last_path(username_a.get('href')) if username_a else None,
-                            ['runtime', 'length']['shortest' in section_id]: [float, int]['shortest' in section_id](columns[ProblemStatisticsColumn.RUNTIME_OR_LENGTH].text.split()[0]),
+                            ['runtime', 'length']['shortest' in section_id]: [to_float, to_int]['shortest' in section_id](columns[ProblemStatisticsColumn.RUNTIME_OR_LENGTH].text.split()[0]),
                             'date': columns[ProblemStatisticsColumn.DATE].text
                         })
                 stats['description'] = description
@@ -296,7 +296,7 @@ class NUSKattis(ABCKattis):
                             try:
                                 status, runtime, language, tc, *_ = columns_text
                                 runtime = ' '.join(runtime.split())
-                                test_case_passed, test_case_full = map(int, tc.split('/'))
+                                test_case_passed, test_case_full = map(to_int, tc.split('/'))
                             except:
                                 status, language, *_ = columns_text
                                 runtime = test_case_passed = test_case_full = None
@@ -356,6 +356,18 @@ class NUSKattis(ABCKattis):
         languages = sorted(set(languages))
         print(f'[stats] languages={languages}')
 
+        def submission_sort_key(submission, fallback_score):
+            score = submission.get('score')
+            if score is None: score = fallback_score
+            passed = submission.get('test_case_passed')
+            runtime = submission.get('runtime') or ''
+            runtime = to_float(1e9 if '>' in runtime else runtime)
+            return (
+                score,
+                passed if passed is not None else 0,
+                -runtime if runtime is not None else -1e9
+            )
+
         for language in languages:
             if language and language not in self.get_database().get_languages(): print(f'[stats] Cannot find {language}, language specified must be one of {sorted(self.get_database().get_languages())}'); continue
 
@@ -385,7 +397,7 @@ class NUSKattis(ABCKattis):
                             if [column.text.strip() for column in columns if column.text.strip()]:
                                 has_content = True
                                 pid = get_last_path(columns[SubmissionsColumn.CONTEST_PROBLEM_NAME].find_all('a')[-1].get('href')) # might have two links if it belongs to a contest
-                                tc_pass, tc_full = map(int, columns[SubmissionsColumn.TESTCASES].text.split('/'))
+                                tc_pass, tc_full = map(to_int, columns[SubmissionsColumn.TESTCASES].text.split('/'))
 
                                 # not converting runtime to float because some TLE solutions (with '>') can also be AC
                                 new_data = {
@@ -398,11 +410,14 @@ class NUSKattis(ABCKattis):
                                     'link': f"{self.get_base_url()}/submissions/{get_last_path(columns[SubmissionsColumn.VIEW_DETAILS].find('a').get('href'))}"
                                 }
 
-                                pts_regex = re.findall(r'[\d\.]+', columns[SubmissionsColumn.STATUS].text)
-                                if pts_regex: new_data['score'] = float(pts_regex[0])
+                                pts_regex = re.findall(r'[\d,.]+', columns[SubmissionsColumn.STATUS].text)
+                                if pts_regex:
+                                    score = to_float(pts_regex[0])
+                                    if score is not None: new_data['score'] = score
+                                fallback_score = tc_pass / tc_full if tc_pass is not None and tc_full else 0
                                 data[pid] = new_data if pid not in data else max(
                                     data[pid], new_data,
-                                    key=lambda x: (x.get('score', tc_pass/tc_full), x['test_case_passed'], -float(x['runtime'] if '>' not in x['runtime'] else 1e9))
+                                    key=lambda x: submission_sort_key(x, fallback_score)
                                 )
 
             # wrap-up
