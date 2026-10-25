@@ -53,6 +53,9 @@ def guess_id(guess, data):
 def truncate_spaces(text):
     return text if (new_text:=text.replace('  ', ' ')) == text else truncate_spaces(new_text)
 
+def normalize_whitespace(text):
+    return ' '.join(text.split())
+
 def remove_brackets(text):
     return text.replace('(', '').replace(')', '').strip()
 

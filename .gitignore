@@ -5,6 +5,7 @@ env.py
 *.csv
 build/
 dist/
+.venv/
 venv/
 *egg-info/
 sync*.py

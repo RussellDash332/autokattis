@@ -20,7 +20,7 @@ from .enums import (
 )
 from .utils import (
     get_last_path, get_table_headers, get_table_rows, guess_id,
-    list_to_tuple, log, parse_interval, to_float, to_int
+    list_to_tuple, log, normalize_whitespace, parse_interval, to_float, to_int
 )
 
 class OpenKattis(ABCKattis):
@@ -215,6 +215,19 @@ class OpenKattis(ABCKattis):
                 },
                 "statistics": {
                     "Python 3": {
+                        "score": {
+                            "ranklist": [
+                                {
+                                    "rank": 1,
+                                    "name": "John Doe",
+                                    "username": "john-doe",
+                                    "score": 67.67,
+                                    "date": "2023-12-23 01:23:45"
+                                },
+                                ...
+                            ],
+                            "description": "The 10 best scoring solutions in C++"
+                        },
                         "fastest": {
                             "ranklist": [
                                 {
@@ -262,7 +275,7 @@ class OpenKattis(ABCKattis):
                         "difficulty_category": "easy"
                     },
                     {
-                        "breakpoint": 40,
+                        "breakpoint": 40.25,
                         "difficulty": 4,
                         "tooltip_text": "Medium",
                         "difficulty_category": "medium"
@@ -291,7 +304,13 @@ class OpenKattis(ABCKattis):
             soup = bs(response.content, features='lxml')
             header = soup.find('h1', class_='book-page-heading')
             body = soup.find('div', class_='problembody')
-            data = {'id': problem_id, 'name': header.text.strip(), 'text': body.text.strip()}
+
+            # Problem A<br>Racing Game -> Racing Game
+            data = {
+                'id': problem_id,
+                'name': header.get_text(separator='\n', strip=True).splitlines()[-1],
+                'text': body.text.strip()
+            }
 
             cpu = memory = author = source = ''
             difficulty, category, files = None, 'N/A', {}
@@ -308,8 +327,8 @@ class OpenKattis(ABCKattis):
                     elif div_text[0] == ProblemMetadataField.SOURCE_LICENSE:
                         text_links = [(s.text.strip(), [a.get('href').strip('/') for a in s.find_all('a')]) for s in d.find_all('span') if s.text.strip()]
                         for text, links in text_links:
-                            if any(link.startswith('problem-authors') for link in links): author = text
-                            if any(link.startswith('problem-sources') for link in links): source = text
+                            if any(link.startswith('problem-authors') for link in links): author = normalize_whitespace(text)
+                            if any(link.startswith('problem-sources') for link in links): source = text.strip()
                     elif div_text[0] == ProblemMetadataField.ATTACHMENTS or div_text[0] == ProblemMetadataField.DOWNLOADS:
                         if not download_files: continue
                         for url, fn in [(f"{self.get_base_url()}{a.get('href')}", a.get('download') or get_last_path(a.get('href'))) for a in d.find_all('a')]:
@@ -339,9 +358,12 @@ class OpenKattis(ABCKattis):
                 table = section.find('table')
                 section_id = section.get('id')
                 language, description = category_map[section_id]
+                metric = section_id.split('_')[1]
+                statistic_type = {'score': 'score', 'runtime': 'fastest', 'length': 'shortest'}[metric]
+                convert_metric = {'score': to_float, 'runtime': to_float, 'length': to_int}[metric]
                 data['statistics'][language] = data['statistics'].get(language, {})
-                data['statistics'][language][['fastest', 'shortest']['shortest' in section_id]] = {}
-                stats = data['statistics'][language][['fastest', 'shortest']['shortest' in section_id]]
+                data['statistics'][language][statistic_type] = {}
+                stats = data['statistics'][language][statistic_type]
                 if table:
                     stats['ranklist'] = []
                     for row in get_table_rows(table):
@@ -349,16 +371,20 @@ class OpenKattis(ABCKattis):
                         username_a = columns[ProblemStatisticsColumn.NAME].find('a')
                         stats['ranklist'].append({
                             'rank': to_int(columns[ProblemStatisticsColumn.RANK].text),
-                            'name': columns[ProblemStatisticsColumn.NAME].text,
+                            'name': columns[ProblemStatisticsColumn.NAME].text.strip(),
                             'username': get_last_path(username_a.get('href')) if username_a else None,
-                            ['runtime', 'length']['shortest' in section_id]: [to_float, to_int]['shortest' in section_id]((columns[ProblemStatisticsColumn.RUNTIME_OR_LENGTH].text.split() or [None])[0]),
+                            metric: convert_metric((columns[ProblemStatisticsColumn.RUNTIME_OR_LENGTH].text.split() or [None])[0]),
                             'date': columns[ProblemStatisticsColumn.DATE].text.strip()
                         })
                 stats['description'] = description
             data['breakpoints'] = []
             for canvas in soup.find_all('canvas'):
                 breakpoints = canvas.get('data-breakpoints')
-                if breakpoints != None: data['breakpoints'] = json.loads(breakpoints)
+                if breakpoints != None:
+                    data['breakpoints'] = [
+                        {**breakpoint, 'breakpoint': to_float(breakpoint['breakpoint'])}
+                        for breakpoint in json.loads(breakpoints)
+                    ]
 
             # my submissions
             data['submissions'] = []
@@ -1132,7 +1158,7 @@ class OpenKattis(ABCKattis):
                             'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemAuthorsColumn.AVG_DIFF]) or ['N/A'])[0],
                             'link': f'{self.get_base_url()}{columns_url[ProblemAuthorsColumn.AUTHOR][0].get("href")}'
                         })
-        return self.Result(data)
+        return self.Result(sorted(data, key=lambda x: x['name']))
 
     @lru_cache
     def problem_sources(self):
@@ -1195,4 +1221,4 @@ class OpenKattis(ABCKattis):
                             'avg_category': (re.findall('[A-Za-z]+', columns_text[ProblemSourcesColumn.AVG_DIFF]) or ['N/A'])[0],
                             'link': f'{self.get_base_url()}{columns_url[ProblemSourcesColumn.SOURCE][0].get("href")}'
                         })
-        return self.Result(data)
+        return self.Result(sorted(data, key=lambda x: x['name']))

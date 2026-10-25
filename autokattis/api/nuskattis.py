@@ -12,7 +12,7 @@ from .enums import (
 )
 from .utils import (
     get_last_path, get_table_headers, get_table_rows, guess_id, list_to_tuple, log,
-    remove_brackets, to_float, to_int, truncate_spaces
+    normalize_whitespace, remove_brackets, to_float, to_int, truncate_spaces
 )
 
 class NUSKattis(ABCKattis):
@@ -124,6 +124,7 @@ class NUSKattis(ABCKattis):
         [
             {
                 "id": "test1",
+                "name": "Test Problem",
                 "text": "This problem has a C++ statistic and is included in possibly more than one course offering.",
                 "cpu": "1 second",
                 "memory": "1024 MB",
@@ -132,6 +133,19 @@ class NUSKattis(ABCKattis):
                 "files": {},
                 "statistics": {
                     "C++": {
+                        "score": {
+                            "ranklist": [
+                                {
+                                    "rank": 1,
+                                    "name": "John Doe",
+                                    "username": "john-doe",
+                                    "score": 67.67,
+                                    "date": "2023-12-23 01:23:45"
+                                },
+                                ...
+                            ],
+                            "description": "The 10 best scoring solutions in C++"
+                        },
                         "fastest": {
                             "ranklist": [
                                 {
@@ -209,23 +223,60 @@ class NUSKattis(ABCKattis):
             if not response.ok: log(f'[problem] Ignoring {problem_id}'); continue
 
             soup = bs(response.content, features='lxml')
+
+            # which course assignment are you looking for?
             if response.url == original_url:
                 dest_urls = []
                 table = soup.find('table', class_='table2')
-                for row in get_table_rows(table):
-                    columns = row.find_all('td')
-                    for column in columns:
-                        if column.find('a'): dest_urls.append(f"{self.get_base_url()}{column.find('a').get('href')}")
-                soup = self.get_soup_response(dest_urls[0])
+                if table:
+                    for row in get_table_rows(table):
+                        columns = row.find_all('td')
+                        for column in columns:
+                            if column.find('a'):
+                                dest_urls.append(f"{self.get_base_url()}{column.find('a').get('href')}")
+
+                offering_soups = {}
+                problem_soup = None
+                selected_url = None
+                for dest_url in dest_urls:
+                    offering_soups[dest_url] = self.get_soup_response(dest_url)
+                    if offering_soups[dest_url].find('div', class_='problembody'):
+                        problem_soup = offering_soups[dest_url]
+                        selected_url = dest_url
+                        break
+                if problem_soup is None:
+                    header = soup.find('h1')
+                    ret.append({
+                        'id': problem_id,
+                        'name': header.text.strip(),
+                        'text': '',
+                        'cpu': '',
+                        'memory': '',
+                        'author': '',
+                        'source': '',
+                        'files': {},
+                        'statistics': {},
+                        'submissions': [],
+                        'offerings': dest_urls,
+                    })
+                    continue
+                soup = problem_soup
             else:
                 dest_urls = [response.url]
+                selected_url = response.url
 
+            header = soup.find('h1', class_='book-page-heading')
             body = soup.find('div', class_='problembody')
             if not body:
-                log('[problem] Problem not found, either invalid ID or no related courses with this problem')
-                return self.Result([])
+                log(f'[problem] Problem {problem_id} not found: either invalid ID, problem data cannot be found, or no related courses with this problem')
+                continue
 
-            data = {'id': problem_id, 'text': body.text.strip()}
+            # Problem A<br>Racing Game -> Racing Game
+            data = {
+                'id': problem_id,
+                'name': header.get_text(separator='\n', strip=True).splitlines()[-1],
+                'text': body.text.strip()
+            }
 
             cpu = memory = author = source = ''
             files = {}
@@ -237,7 +288,8 @@ class NUSKattis(ABCKattis):
                     elif div_text[0] == ProblemMetadataField.MEMORY_LIMIT:
                         memory = div_text[-1].strip()
                     elif div_text[0] == ProblemMetadataField.SOURCE_LICENSE:
-                        _, author, source, *_ = [s.text for s in d.find_all('span') if not s.find('span')]
+                        _, author, source, *_ = [s.text.strip() for s in d.find_all('span') if not s.find('span')]
+                        author = normalize_whitespace(author)
                     elif div_text[0] == ProblemMetadataField.ATTACHMENTS or div_text[0] == ProblemMetadataField.DOWNLOADS:
                         for url, fn in [(f"{self.get_base_url()}{a.get('href')}", a.get('download') or get_last_path(a.get('href'))) for a in d.find_all('a')]:
                             if not download_files: continue
@@ -258,17 +310,19 @@ class NUSKattis(ABCKattis):
             }
 
             # statistics
-            # if there are multiple offerings, just take the first one because they share the same leaderboard
             data['statistics'] = {}
-            soup = self.get_soup_response(f'{dest_urls[0]}/statistics')
+            soup = self.get_soup_response(f'{selected_url}/statistics')
             category_map = {option.get('value')[1:]:[option.text, option.get('data-title')] for option in soup.find_all('option')}
             for section in soup.find_all('section', class_='strip strip-item-plain'):
                 table = section.find('table')
-                section_id = section.get('id')
+                section_id = section.get('id') # toplist_score_x, toplist_runtime_x, toplist_length_x
                 language, description = category_map[section_id]
+                metric = section_id.split('_')[1]
+                statistic_type = {'score': 'score', 'runtime': 'fastest', 'length': 'shortest'}[metric]
+                convert_metric = {'score': to_float, 'runtime': to_float, 'length': to_int}[metric]
                 data['statistics'][language] = data['statistics'].get(language, {})
-                data['statistics'][language][['fastest', 'shortest']['shortest' in section_id]] = {}
-                stats = data['statistics'][language][['fastest', 'shortest']['shortest' in section_id]]
+                data['statistics'][language][statistic_type] = {}
+                stats = data['statistics'][language][statistic_type]
                 if table:
                     stats['ranklist'] = []
                     for row in get_table_rows(table):
@@ -276,10 +330,10 @@ class NUSKattis(ABCKattis):
                         username_a = columns[ProblemStatisticsColumn.NAME].find('a')
                         stats['ranklist'].append({
                             'rank': to_int(columns[ProblemStatisticsColumn.RANK].text),
-                            'name': columns[ProblemStatisticsColumn.NAME].text,
+                            'name': columns[ProblemStatisticsColumn.NAME].text.strip(),
                             'username': get_last_path(username_a.get('href')) if username_a else None,
-                            ['runtime', 'length']['shortest' in section_id]: [to_float, to_int]['shortest' in section_id](columns[ProblemStatisticsColumn.RUNTIME_OR_LENGTH].text.split()[0]),
-                            'date': columns[ProblemStatisticsColumn.DATE].text
+                            metric: convert_metric(columns[ProblemStatisticsColumn.RUNTIME_OR_LENGTH].text.split()[0]),
+                            'date': columns[ProblemStatisticsColumn.DATE].text.strip()
                         })
                 stats['description'] = description
 
@@ -453,7 +507,7 @@ class NUSKattis(ABCKattis):
         for table in tables:
             for row in table.find_all('tr'):
                 columns = row.find_all('td')
-                columns_text = [truncate_spaces(column.text.strip()) for column in columns]
+                columns_text = [normalize_whitespace(column.get_text(separator=' ', strip=True)) for column in columns]
                 columns_url = [column.find('a') for column in columns]
                 if columns_text:
                     href = columns_url[0].get('href')
